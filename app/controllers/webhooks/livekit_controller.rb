@@ -15,7 +15,8 @@ class Webhooks::LivekitController < ActionController::API
   def events
     return head(:unauthorized) unless verify_livekit_signature!
 
-    event = params[:event]
+    event = payload[%q{event}]
+    Rails.logger.info(%Q{[livekit-webhook] event=#{event} kind=#{participant[%q{kind}].inspect} did=#{attributes[%q{sip.trunkPhoneNumber}].inspect} caller=#{attributes[%q{sip.phoneNumber}].inspect}})
     if event == 'participant_joined' && sip_participant?
       enqueue_inbound_call
     end
@@ -42,7 +43,8 @@ class Webhooks::LivekitController < ActionController::API
 
   # LiveKit ParticipantInfo.Kind: STANDARD=0, INGRESS=1, EGRESS=2, SIP=3, AGENT=4
   def sip_participant?
-    participant['kind'].to_s == 'SIP' || participant['kind'].to_i == 3
+    k = participant[%q{kind}]
+    k.to_s.upcase == %q{SIP} || k.to_i == 3
   end
 
   def enqueue_inbound_call
