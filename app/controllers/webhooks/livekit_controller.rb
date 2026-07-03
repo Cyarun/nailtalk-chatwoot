@@ -67,10 +67,18 @@ class Webhooks::LivekitController < ActionController::API
     Rails.logger.error("[livekit-webhook] inbound call ingest failed: #{e.class} #{e.message}")
   end
 
+  # Normalize to E.164. Vobiz sends Indian callers like "08179245139" (leading 0,
+  # no country code) — strip the 0 and prefix +91; a bare 10-digit gets +91 too;
+  # an already-plus number is kept as-is.
   def normalize_e164(num)
     return if num.blank?
-    digits = num.to_s.gsub(/\D/, '')
-    "+#{digits}"
+    s = num.to_s.strip
+    return s if s.start_with?(%q{+})
+
+    digits = s.gsub(/\D/, %q{})
+    digits = digits.delete_prefix(%q{0})
+    digits = %Q{91#{digits}} if digits.length == 10
+    %Q{+#{digits}}
   end
 
   # Verify the LiveKit-signed webhook: JWT in Authorization header signed with our
