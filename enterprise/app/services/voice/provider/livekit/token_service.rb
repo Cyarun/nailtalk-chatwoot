@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'livekit'
+
 # Voice::Provider::Livekit::TokenService — mints a LiveKit access token so an agent's
 # browser can JOIN the caller's LiveKit room and talk (human-first: agent answers, the
 # caller is pulled to / shared with the agent). Mirrors the Twilio TokenService interface
@@ -10,10 +12,10 @@ class Voice::Provider::Livekit::TokenService
   pattr_initialize [:inbox!, :user!, :account!, { room_name: nil }]
 
   def generate
-    token = LiveKit::AccessToken.new(api_key: api_key, api_secret: api_secret)
+    token = ::LiveKit::AccessToken.new(api_key: api_key, api_secret: api_secret)
     token.identity = identity
     token.name = user.name
-    token.video_grant = LiveKit::VideoGrant.new(
+    token.video_grant = ::LiveKit::VideoGrant.new(
       roomJoin: true,
       room: room_name,
       canPublish: true,
