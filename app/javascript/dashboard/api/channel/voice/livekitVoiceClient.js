@@ -16,7 +16,7 @@ class LiveKitVoiceClient extends EventTarget {
 
   // Fetch a LiveKit join token for the ringing call in this inbox.
   async initializeDevice(inboxId) {
-    const { data } = await VoiceAPI.getToken(inboxId);
+    const data = await VoiceAPI.getToken(inboxId);
     this.token = data.token;
     this.url = data.livekit_url;
     this.roomName = data.room_name;
