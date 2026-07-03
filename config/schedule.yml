@@ -74,3 +74,11 @@ remove_orphan_conversations_job:
   cron: '0 */12 * * *'
   class: 'Internal::RemoveOrphanConversationsJob'
   queue: housekeeping
+
+# executed every 30 minutes — NailTalk (native OKF -> Captain knowledge sync)
+# keeps Captain's Q&A (Captain::AssistantResponse) in lock-step with the OKF/Wix service catalog
+# so prices/services never drift; re-embedding is triggered natively per response on change.
+captain_okf_sync_job:
+  cron: '*/30 * * * *'
+  class: 'Captain::OkfSyncJob'
+  queue: scheduled_jobs
