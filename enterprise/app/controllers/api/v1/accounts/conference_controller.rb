@@ -35,7 +35,11 @@ class Api::V1::Accounts::ConferenceController < Api::V1::Accounts::BaseControlle
     call = resolve_call!
     rejecting = agent_rejecting_before_pickup?(call)
     # Tear down provider side first so a teardown failure leaves the call repairable.
-    Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
+    if call.livekit?
+      call.update!(status: :completed) unless Call::TERMINAL_STATUSES.include?(call.status)
+    else
+      Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
+    end
     finalize_as_agent_reject!(call) if rejecting
     render json: { status: 'success', id: call.conversation.display_id }
   end
