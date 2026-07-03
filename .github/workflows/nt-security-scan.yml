@@ -1,0 +1,31 @@
+# NailTalk — SSDLC security scan (SAST + dependency CVEs) on the fork.
+# Part of the CI/CD + UAT->prod discipline: every change is scanned before it can be
+# promoted. Findings should be raised as issues + resolved before UAT sign-off.
+name: nt-security-scan
+
+on:
+  push:
+    branches: [develop, main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - name: Brakeman (Rails SAST)
+        run: |
+          gem install brakeman --no-document
+          # NailTalk-authored code lives under app/**/nt/ + the leadgen + voice overlays.
+          brakeman -q --no-pager --format github || true
+
+      - name: bundler-audit (dependency CVEs)
+        run: |
+          gem install bundler-audit --no-document
+          bundle-audit check --update
