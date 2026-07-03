@@ -48,13 +48,23 @@ class Nt::MetaLeadgenJob < ApplicationJob
       }
     ).perform
 
+    # The builder only applies custom_attributes when it CREATES a contact; a returning lead
+    # (matched by phone/email) comes back untouched. Merge our consent/provenance/dedup attrs onto
+    # the contact either way so returning leads get fresh provenance AND the dedup key is always set.
+    contact = contact_inbox.contact
+    contact.update!(custom_attributes: contact.custom_attributes.merge(attrs))
+
+    # ConversationBuilder#conversation_params calls .permit! on custom/additional attributes, so it
+    # needs ActionController::Parameters, not a plain Hash.
     conversation = ConversationBuilder.new(
-      params: { custom_attributes: { lead_branch: attrs['lead_branch'] }.compact },
+      params: ActionController::Parameters.new(
+        custom_attributes: { lead_branch: attrs['lead_branch'] }.compact
+      ),
       contact_inbox: contact_inbox
     ).perform
 
-    write_consent_note(contact_inbox.contact, lead, consent)
-    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact_inbox.contact_id} conv #{conversation&.display_id}")
+    write_consent_note(contact, lead, consent)
+    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact.id} conv #{conversation&.display_id}")
     conversation
   end
 
