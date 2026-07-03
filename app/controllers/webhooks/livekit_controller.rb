@@ -70,6 +70,22 @@ class Webhooks::LivekitController < ActionController::API
   # Normalize to E.164. Vobiz sends Indian callers like "08179245139" (leading 0,
   # no country code) — strip the 0 and prefix +91; a bare 10-digit gets +91 too;
   # an already-plus number is kept as-is.
+  # Transition the call to a terminal status when it ends (no_answer if never
+  # answered, completed if it was in progress) so the ringing card/button clears.
+  def end_inbound_call
+    call_id = attributes[%q{sip.callID}].presence || payload.dig(%q{room}, %q{name})
+    room = payload.dig(%q{room}, %q{name})
+    scope = Call.where(provider: :livekit)
+    call = scope.find_by(provider_call_id: call_id)
+    call ||= scope.where(%q{meta ->> ? = ?}, %q{room_name}, room).order(:created_at).last if room.present?
+    return unless call && !Call::TERMINAL_STATUSES.include?(call.status)
+
+    new_status = call.status == %q{in_progress} ? %q{completed} : %q{no_answer}
+    Voice::CallStatus::Manager.new(call: call).process_status_update(new_status)
+  rescue StandardError => e
+    Rails.logger.error(%Q{[livekit-webhook] end call failed: #{e.class} #{e.message}})
+  end
+
   def normalize_e164(num)
     return if num.blank?
     s = num.to_s.strip
