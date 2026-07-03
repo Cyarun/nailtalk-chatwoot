@@ -1,0 +1,93 @@
+# frozen_string_literal: true
+
+# Webhooks::LivekitController — receives LiveKit server webhooks (POST) and, when an
+# inbound SIP call from Vobiz lands (participant_joined, participant.kind == SIP),
+# creates a native Chatwoot Call + voice_call Message via Voice::InboundCallBuilder so
+# the incoming-call widget RINGS on the agent's browser (uatcrm) with live status.
+#
+# Flow: customer -> Vobiz -> LiveKit SIP -> room -> LiveKit posts participant_joined here
+#       -> map sip.trunkPhoneNumber (dialed DID) to the voice inbox -> InboundCallBuilder.
+#
+# LiveKit signs each webhook with a JWT in the Authorization header whose payload carries
+# a sha256 claim = base64(SHA256(raw body)). We verify both (signature + body hash).
+# Route (config/routes.rb): post 'webhooks/livekit' -> 'webhooks/livekit#events'
+class Webhooks::LivekitController < ActionController::API
+  def events
+    return head(:unauthorized) unless verify_livekit_signature!
+
+    event = params[:event]
+    if event == 'participant_joined' && sip_participant?
+      enqueue_inbound_call
+    end
+    head :ok
+  end
+
+  private
+
+  def raw_body
+    @raw_body ||= request.body.read
+  end
+
+  def payload
+    @payload ||= JSON.parse(raw_body) rescue {}
+  end
+
+  def participant
+    payload['participant'] || {}
+  end
+
+  def attributes
+    participant['attributes'] || {}
+  end
+
+  # LiveKit ParticipantInfo.Kind: STANDARD=0, INGRESS=1, EGRESS=2, SIP=3, AGENT=4
+  def sip_participant?
+    participant['kind'].to_s == 'SIP' || participant['kind'].to_i == 3
+  end
+
+  def enqueue_inbound_call
+    dialed_did = normalize_e164(attributes['sip.trunkPhoneNumber'])
+    caller     = normalize_e164(attributes['sip.phoneNumber'])
+    call_id    = attributes['sip.callID'].presence || (payload.dig('room', 'name'))
+    return if dialed_did.blank? || call_id.blank?
+
+    channel = Channel::TwilioSms.find_by(phone_number: dialed_did)
+    return unless channel&.voice_enabled?
+
+    Voice::InboundCallBuilder.perform!(
+      inbox: channel.inbox,
+      from_number: caller,
+      call_sid: call_id,
+      provider: :livekit,
+      extra_meta: { 'room_name' => payload.dig('room', 'name'), 'trunk_id' => attributes['sip.trunkID'] }
+    )
+  rescue StandardError => e
+    Rails.logger.error("[livekit-webhook] inbound call ingest failed: #{e.class} #{e.message}")
+  end
+
+  def normalize_e164(num)
+    return if num.blank?
+    digits = num.to_s.gsub(/\D/, '')
+    "+#{digits}"
+  end
+
+  # Verify the LiveKit-signed webhook: JWT in Authorization header signed with our
+  # LIVEKIT_API_SECRET (iss == LIVEKIT_API_KEY), and its sha256 claim == base64(SHA256(body)).
+  def verify_livekit_signature!
+    token = request.headers['Authorization'].to_s.delete_prefix('Bearer ')
+    return false if token.blank?
+
+    secret = ENV.fetch('LIVEKIT_API_SECRET', nil)
+    key    = ENV.fetch('LIVEKIT_API_KEY', nil)
+    return false if secret.blank?
+
+    decoded, = JWT.decode(token, secret, true, algorithm: 'HS256')
+    return false if key.present? && decoded['iss'] != key
+
+    expected = Base64.strict_encode64(Digest::SHA256.digest(raw_body))
+    ActiveSupport::SecurityUtils.secure_compare(decoded['sha256'].to_s, expected)
+  rescue JWT::DecodeError, StandardError => e
+    Rails.logger.warn("[livekit-webhook] signature verify failed: #{e.message}")
+    false
+  end
+end

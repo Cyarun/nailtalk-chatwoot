@@ -6,13 +6,20 @@ module Enterprise::Channel::TwilioSms
       encrypts :api_key_secret if Chatwoot.encryption_configured?
 
       validate :voice_requires_phone_number, if: :voice_enabled?
-      before_validation :provision_twiml_app, on: :create, if: :voice_enabled?
-      before_validation :provision_twiml_app_on_update, on: :update, if: :voice_enabled_changed_to_true?
+      before_validation :provision_twiml_app, on: :create, if: -> { voice_enabled? && !livekit_voice? }
+      before_validation :provision_twiml_app_on_update, on: :update, if: -> { voice_enabled_changed_to_true? && !livekit_voice? }
       after_commit :teardown_voice, on: :update, if: :voice_disabled?
     end
   end
 
+  # voice_provider marker lives in provider_config (jsonb) - livekit skips Twilio.
+  def livekit_voice?
+    provider_config.is_a?(Hash) && provider_config["voice_provider"] == "livekit"
+  end
+
   def initiate_call(to:, conference_sid: nil, agent_id: nil)
+    return Voice::Provider::Livekit::Adapter.new(self).initiate_call(to: to, conference_sid: conference_sid, agent_id: agent_id) if livekit_voice?
+
     Voice::Provider::Twilio::Adapter.new(self).initiate_call(
       to: to,
       conference_sid: conference_sid,

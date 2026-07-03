@@ -627,6 +627,7 @@ Rails.application.routes.draw do
   # NailTalk — native Meta Lead Ads (Instant Form) ingestion (replaces leadgen_bridge.py)
   get 'webhooks/meta_leadgen', to: 'webhooks/meta_leadgen#verify'
   post 'webhooks/meta_leadgen', to: 'webhooks/meta_leadgen#events'
+  post 'webhooks/livekit', to: 'webhooks/livekit#events'  # NailTalk: LiveKit inbound SIP call -> Chatwoot Call
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
   post 'webhooks/shopify', to: 'webhooks/shopify#events'
 
