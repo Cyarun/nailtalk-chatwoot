@@ -17,6 +17,7 @@ export const INBOX_TYPES = {
 export const VOICE_CALL_PROVIDERS = {
   TWILIO: 'twilio',
   WHATSAPP: 'whatsapp',
+  LIVEKIT: 'livekit',
 };
 
 export const getVoiceCallProvider = inbox => {
@@ -28,6 +29,8 @@ export const getVoiceCallProvider = inbox => {
 
   if (!voiceEnabled) return null;
 
+  if (channelType === INBOX_TYPES.TWILIO && inbox.voice_provider === VOICE_CALL_PROVIDERS.LIVEKIT)
+    return VOICE_CALL_PROVIDERS.LIVEKIT;
   if (channelType === INBOX_TYPES.TWILIO) return VOICE_CALL_PROVIDERS.TWILIO;
   if (channelType === INBOX_TYPES.WHATSAPP)
     return VOICE_CALL_PROVIDERS.WHATSAPP;
@@ -39,6 +42,7 @@ export const isVoiceCallEnabled = inbox => getVoiceCallProvider(inbox) !== null;
 
 export const TWILIO_CHANNEL_MEDIUM = {
   WHATSAPP: 'whatsapp',
+  LIVEKIT: 'livekit',
   SMS: 'sms',
 };
 

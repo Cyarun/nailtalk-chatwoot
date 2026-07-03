@@ -3,6 +3,7 @@ import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
+import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
 import { useCallsStore } from 'dashboard/stores/calls';
 import { useAlert } from 'dashboard/composables';
 import {
@@ -20,6 +21,7 @@ import {
 import Timer from 'dashboard/helper/Timer';
 
 const isWhatsappCall = call => call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP;
+const isLivekitCall = call => call?.provider === VOICE_CALL_PROVIDERS.LIVEKIT;
 
 // Dismissed call sids must not be re-seeded by the conversation-load watcher.
 // Lives at module scope so all consumers share the same set.
@@ -104,7 +106,11 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
     try {
       await VoiceAPI.leaveConference({ inboxId, conversationId, callSid });
     } finally {
-      TwilioVoiceClient.endClientCall();
+      if (isLivekitCall(call)) {
+        LiveKitVoiceClient.endClientCall();
+      } else {
+        TwilioVoiceClient.endClientCall();
+      }
       globalDurationTimer?.stop();
       callsStore.clearActiveCall();
     }
@@ -138,6 +144,17 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         callsStore.setCallActive(callSid);
         globalDurationTimer?.start();
         return { callId: call.callId };
+      }
+
+      if (isLivekitCall(call)) {
+        // LiveKit: fetch a join token for the caller room, connect + publish mic.
+        // Mark the conference joined server-side (assigns the call to this agent).
+        await LiveKitVoiceClient.initializeDevice(inboxId);
+        await VoiceAPI.joinConference({ conversationId, inboxId, callSid });
+        await LiveKitVoiceClient.joinClientCall({ conversationId, callSid });
+        callsStore.setCallActive(callSid);
+        globalDurationTimer?.start();
+        return { callSid };
       }
 
       const device = await TwilioVoiceClient.initializeDevice(inboxId);

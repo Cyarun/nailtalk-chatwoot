@@ -140,6 +140,7 @@ end
 ## Voice attributes for TwilioSms
 if resource.twilio? && resource.channel.respond_to?(:voice_enabled?)
   json.voice_enabled resource.channel.voice_enabled?
+  json.voice_provider resource.channel.provider_config&.dig(%q{voice_provider}) if resource.channel.respond_to?(:provider_config)
   json.inbound_calls_enabled resource.channel.inbound_calls_enabled?
   json.voice_configured resource.channel.try(:twiml_app_sid).present?
   json.has_api_key_secret resource.channel.try(:api_key_secret).present?
