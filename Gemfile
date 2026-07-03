@@ -105,6 +105,7 @@ gem 'wisper', '2.0.0'
 gem 'facebook-messenger'
 gem 'line-bot-api'
 gem 'twilio-ruby'
+gem 'livekit-server-sdk'
 # twitty will handle subscription of twitter account events
 # gem 'twitty', git: 'https://github.com/chatwoot/twitty'
 gem 'twitty', '~> 0.1.5'

@@ -3,11 +3,17 @@ class Api::V1::Accounts::ConferenceController < Api::V1::Accounts::BaseControlle
   rescue_from CustomExceptions::CallAlreadyAccepted, with: :render_call_already_accepted
 
   def token
-    render json: Voice::Provider::Twilio::TokenService.new(
-      inbox: @voice_inbox,
-      user: Current.user,
-      account: Current.account
-    ).generate
+    if livekit_inbox?
+      call = latest_ringing_livekit_call
+      render json: Voice::Provider::Livekit::TokenService.new(
+        inbox: @voice_inbox, user: Current.user, account: Current.account,
+        room_name: call&.meta&.dig(%q{room_name})
+      ).generate
+    else
+      render json: Voice::Provider::Twilio::TokenService.new(
+        inbox: @voice_inbox, user: Current.user, account: Current.account
+      ).generate
+    end
   end
 
   def create
@@ -41,8 +47,21 @@ class Api::V1::Accounts::ConferenceController < Api::V1::Accounts::BaseControlle
     raise ActionController::ParameterMissing, :call_sid if sid.blank?
 
     conversation = fetch_conversation_by_display_id
-    Call.where(inbox_id: @voice_inbox.id, provider: :twilio, conversation_id: conversation.id)
+    Call.where(inbox_id: @voice_inbox.id, provider: call_provider, conversation_id: conversation.id)
         .find_by!(provider_call_id: sid)
+  end
+
+  def livekit_inbox?
+    @voice_inbox.channel.respond_to?(:livekit_voice?) && @voice_inbox.channel.livekit_voice?
+  end
+
+  def call_provider
+    livekit_inbox? ? :livekit : :twilio
+  end
+
+  def latest_ringing_livekit_call
+    Call.where(inbox_id: @voice_inbox.id, provider: :livekit, status: %w[ringing in_progress])
+        .order(:created_at).last
   end
 
   def set_voice_inbox_for_conference
