@@ -624,6 +624,9 @@ Rails.application.routes.draw do
   post 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#process_payload'
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
+  # NailTalk — native Meta Lead Ads (Instant Form) ingestion (replaces leadgen_bridge.py)
+  get 'webhooks/meta_leadgen', to: 'webhooks/meta_leadgen#verify'
+  post 'webhooks/meta_leadgen', to: 'webhooks/meta_leadgen#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
   post 'webhooks/shopify', to: 'webhooks/shopify#events'
 
