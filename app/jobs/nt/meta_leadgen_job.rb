@@ -54,18 +54,27 @@ class Nt::MetaLeadgenJob < ApplicationJob
     contact = contact_inbox.contact
     contact.update!(custom_attributes: contact.custom_attributes.merge(attrs))
 
-    # ConversationBuilder#conversation_params calls .permit! on custom/additional attributes, so it
-    # needs ActionController::Parameters, not a plain Hash.
-    conversation = ConversationBuilder.new(
-      params: ActionController::Parameters.new(
-        custom_attributes: { lead_branch: attrs['lead_branch'] }.compact
-      ),
-      contact_inbox: contact_inbox
-    ).perform
+    # CONTACT-FIRST journey: do NOT dump a conversation into the Leads inbox. The lead
+    # is captured + enriched as a Contact (source of truth) and labelled for the native
+    # warm-welcome + nurture Automations. Booking is INBOUND-ONLY (the lead reaches out).
+    # The branch is stored on the contact so branch-routing/segmentation can use it.
+    contact.update!(custom_attributes: contact.custom_attributes.merge(
+      { 'lead_stage' => 'new' }.merge(attrs['lead_branch'] ? { 'lead_branch' => attrs['lead_branch'] } : {})
+    ))
+    apply_lead_labels(contact, attrs)
 
     write_consent_note(contact, lead, consent)
-    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact.id} conv #{conversation&.display_id}")
-    conversation
+    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact.id} (contact-first, no conversation)")
+    contact
+  end
+
+  # Native labels for segmentation / warm-welcome automations (meta-lead + branch-<x>).
+  def apply_lead_labels(contact, attrs)
+    labels = ['meta-lead', 'lead-new']
+    labels << "branch-#{attrs['lead_branch']}" if attrs['lead_branch'].present?
+    contact.update!(label_list: (contact.label_list | labels))
+  rescue StandardError => e
+    Rails.logger.warn("[meta-leadgen] label apply failed: #{e.message}")
   end
 
   private
