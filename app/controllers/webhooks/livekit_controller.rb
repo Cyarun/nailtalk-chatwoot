@@ -17,9 +17,10 @@ class Webhooks::LivekitController < ActionController::API
 
     event = payload[%q{event}]
     Rails.logger.info(%Q{[livekit-webhook] event=#{event} kind=#{participant[%q{kind}].inspect} did=#{attributes[%q{sip.trunkPhoneNumber}].inspect} caller=#{attributes[%q{sip.phoneNumber}].inspect}})
-    if event == 'participant_joined' && sip_participant?
-      enqueue_inbound_call
-    end
+    # Create the Chatwoot support Call ONLY when the caller pressed 9 (the IVR POSTs
+    # a signed nailtalk_press_9 event). NOT on participant_joined - that rang the
+    # agent for every inbound call before the caller chose a human.
+    enqueue_inbound_call if event == 'nailtalk_press_9'
     head :ok
   end
 
