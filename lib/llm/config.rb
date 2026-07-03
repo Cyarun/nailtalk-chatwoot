@@ -35,6 +35,14 @@ module Llm::Config
       RubyLLM.configure do |config|
         config.openai_api_key = system_api_key if system_api_key.present?
         config.openai_api_base = openai_endpoint.chomp('/') if openai_endpoint.present?
+        # NailTalk (CRM 360): our key is an OpenRouter key and our endpoint IS OpenRouter's
+        # OpenAI-compatible API. Provider-prefixed models (e.g. "google/gemini-2.5-flash-lite")
+        # make RubyLLM auto-route to its native :openrouter provider, which needs its OWN key —
+        # otherwise Copilot/Captain fail with "Missing configuration for OpenRouter". Set it so
+        # both the openai-compat path AND the openrouter-routed path use our single key.
+        if system_api_key.present?
+          config.openrouter_api_key = system_api_key rescue nil
+        end
         config.model_registry_file = Rails.root.join('config/llm_models.json').to_s
         config.logger = Rails.logger
       end
