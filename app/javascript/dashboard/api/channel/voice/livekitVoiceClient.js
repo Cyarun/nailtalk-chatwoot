@@ -87,7 +87,11 @@ class LiveKitVoiceClient extends EventTarget {
     this.room.on(RoomEvent.Disconnected, (reason) => {
       // eslint-disable-next-line no-console
       console.info('LiveKit room disconnected', reason);
+      // However the call ends (agent hangs up, the OTHER side hangs up, network drop),
+      // release the mic/camera so the browser tab's device indicator turns off.
+      this._stopLocalTracks();
       this._cleanupAudio();
+      this.room = null;
       this.dispatchEvent(createCallDisconnectedEvent());
     });
 
@@ -161,13 +165,32 @@ class LiveKitVoiceClient extends EventTarget {
 
   endClientCall() {
     if (this.room) {
-      this.room.disconnect();
+      // Explicitly STOP every local track first so the mic/camera hardware is really
+      // released (the browser tab's mic/camera indicator goes off). room.disconnect()
+      // defaults to stopTracks:true, but we stop them ourselves too so a track that
+      // wasn't fully tracked can't leave getUserMedia running.
+      this._stopLocalTracks();
+      this.room.disconnect(true); // true = stop local tracks
       this.room = null;
     }
     this._cleanupAudio();
     this.token = null;
     this.url = null;
     this.dispatchEvent(createCallDisconnectedEvent());
+  }
+
+  _stopLocalTracks() {
+    const lp = this.room?.localParticipant;
+    if (!lp) return;
+    try {
+      lp.trackPublications.forEach(pub => {
+        // stop() releases the underlying MediaStreamTrack (frees the device).
+        pub.track?.stop();
+        if (pub.track) lp.unpublishTrack(pub.track).catch(() => {});
+      });
+    } catch (e) {
+      // best-effort — disconnect(true) is the backstop.
+    }
   }
 }
 
