@@ -40,6 +40,36 @@ const isWhatsappActive = computed(
   () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
 
+// Speaker + camera (LiveKit calls). Speaker toggle only where the browser supports
+// output-device selection; video only on internal (agent<->agent) calls.
+const isSpeakerOn = ref(false);
+const isCameraOn = ref(false);
+const isLivekitActive = computed(
+  () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
+);
+const showSpeaker = computed(
+  () => isLivekitActive.value && LiveKitVoiceClient.supportsSpeakerSelection()
+);
+// Video (camera) parked for a later phase — the client-side plumbing exists but the
+// video-tile UI isn't built yet, so keep the camera button hidden for now.
+const showVideo = computed(() => false);
+
+const toggleSpeaker = async () => {
+  if (!isLivekitActive.value) return;
+  const outputs = await LiveKitVoiceClient.getDevices('audiooutput');
+  if (!outputs.length) return;
+  // Cycle to the next output device (e.g. earpiece <-> speaker/headphones).
+  const next = outputs[isSpeakerOn.value ? 0 : outputs.length - 1];
+  await LiveKitVoiceClient.switchDevice('audiooutput', next.deviceId);
+  isSpeakerOn.value = !isSpeakerOn.value;
+};
+
+const toggleCamera = async () => {
+  if (!isLivekitActive.value) return;
+  isCameraOn.value = !isCameraOn.value;
+  await LiveKitVoiceClient.setCameraEnabled(isCameraOn.value);
+};
+
 const primaryIncomingCall = computed(() =>
   hasActiveCall.value ? null : incomingCalls.value[0] || null
 );
@@ -77,7 +107,11 @@ const toggleMute = () => {
 };
 
 watch(hasActiveCall, active => {
-  if (!active) isMuted.value = false;
+  if (!active) {
+    isMuted.value = false;
+    isSpeakerOn.value = false;
+    isCameraOn.value = false;
+  }
 });
 
 // Convert ISO 3166-1 alpha-2 country code (e.g. "US") to its regional indicator
@@ -241,6 +275,32 @@ const ringtone = new Audio(RINGTONE_URL);
 ringtone.loop = true;
 ringtone.volume = 1;
 
+// Mobile/desktop browsers block audio.play() without a prior user gesture, so an
+// incoming-call ringtone would be silently rejected (esp. on phones). Prime the audio
+// element on the FIRST user interaction anywhere (play muted then pause) — after that
+// the browser allows the ringtone to autoplay when a call arrives.
+let ringtoneUnlocked = false;
+const unlockRingtone = () => {
+  if (ringtoneUnlocked) return;
+  ringtoneUnlocked = true;
+  const prev = ringtone.muted;
+  ringtone.muted = true;
+  ringtone
+    .play()
+    .then(() => {
+      ringtone.pause();
+      ringtone.currentTime = 0;
+      ringtone.muted = prev;
+    })
+    .catch(() => {
+      ringtone.muted = prev;
+    });
+  window.removeEventListener('pointerdown', unlockRingtone);
+  window.removeEventListener('keydown', unlockRingtone);
+};
+window.addEventListener('pointerdown', unlockRingtone);
+window.addEventListener('keydown', unlockRingtone);
+
 const stopRingtone = () => {
   ringtone.pause();
   ringtone.currentTime = 0;
@@ -294,11 +354,17 @@ onBeforeUnmount(stopRingtone);
       :duration="hasActiveCall ? formattedCallDuration : ''"
       :is-muted="isMuted"
       :show-mute="hasActiveCall"
+      :show-speaker="showSpeaker"
+      :is-speaker-on="isSpeakerOn"
+      :show-video="showVideo"
+      :is-camera-on="isCameraOn"
       @accept="handleJoinCall(primaryIncomingCall)"
       @reject="rejectIncomingCall(primaryIncomingCall?.callSid)"
       @dismiss="dismissCall(primaryIncomingCall?.callSid)"
       @end="handleEndCall"
       @toggle-mute="toggleMute"
+      @toggle-speaker="toggleSpeaker"
+      @toggle-camera="toggleCamera"
       @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"
     />
   </div>

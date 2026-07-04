@@ -33,6 +33,22 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  showSpeaker: {
+    type: Boolean,
+    default: false,
+  },
+  isSpeakerOn: {
+    type: Boolean,
+    default: false,
+  },
+  showVideo: {
+    type: Boolean,
+    default: false,
+  },
+  isCameraOn: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 defineEmits([
@@ -40,6 +56,8 @@ defineEmits([
   'reject',
   'end',
   'toggleMute',
+  'toggleSpeaker',
+  'toggleCamera',
   'goToConversation',
   'dismiss',
 ]);
@@ -178,6 +196,28 @@ const channelIcon = computed(() => {
             :color="isMuted ? 'amber' : 'teal'"
             class="!rounded-full"
             @click="$emit('toggleMute')"
+          />
+
+          <!-- Speaker toggle (where the browser supports output selection) -->
+          <NextButton
+            v-if="isOngoing && showMute && showSpeaker"
+            v-tooltip.top="'Speaker'"
+            :icon="isSpeakerOn ? 'i-ph-speaker-high-bold' : 'i-ph-speaker-simple-low-bold'"
+            :variant="isSpeakerOn ? 'solid' : 'faded'"
+            color="teal"
+            class="!rounded-full"
+            @click="$emit('toggleSpeaker')"
+          />
+
+          <!-- Camera toggle (internal video calls only) -->
+          <NextButton
+            v-if="isOngoing && showVideo"
+            v-tooltip.top="isCameraOn ? 'Turn camera off' : 'Turn camera on'"
+            :icon="isCameraOn ? 'i-ph-video-camera-bold' : 'i-ph-video-camera-slash-bold'"
+            :variant="isCameraOn ? 'solid' : 'faded'"
+            color="teal"
+            class="!rounded-full"
+            @click="$emit('toggleCamera')"
           />
 
           <!-- Accept call (incoming only) -->

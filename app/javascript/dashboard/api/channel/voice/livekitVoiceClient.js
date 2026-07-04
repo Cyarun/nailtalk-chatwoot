@@ -1,4 +1,9 @@
-import { Room, RoomEvent, Track } from "livekit-client";
+import {
+  Room,
+  RoomEvent,
+  Track,
+  supportsAudioOutputSelection,
+} from "livekit-client";
 import VoiceAPI from "dashboard/api/channel/voice/voiceAPIClient";
 
 const createCallDisconnectedEvent = () => new CustomEvent("call:disconnected");
@@ -53,13 +58,20 @@ class LiveKitVoiceClient extends EventTarget {
     // CRITICAL: play the OTHER participant's audio. Subscribing to a track only makes it
     // available — LiveKit does NOT auto-play it. We must attach() it to a DOM element,
     // else neither side hears the other (per LiveKit client-sdk-js docs).
-    this.room.on(RoomEvent.TrackSubscribed, (track) => {
+    this.room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
       if (track.kind === Track.Kind.Audio) {
         const el = track.attach();
         el.autoplay = true;
         el.setAttribute('data-livekit-audio', 'true');
         document.body.appendChild(el);
         this._audioElements.push(el);
+      } else if (track.kind === Track.Kind.Video) {
+        // Remote video (internal video call) — emit so the UI mounts a tile.
+        this.dispatchEvent(
+          new CustomEvent('video:track', {
+            detail: { track, participant: participant?.identity, remote: true },
+          })
+        );
       }
     });
     this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
@@ -97,6 +109,54 @@ class LiveKitVoiceClient extends EventTarget {
     if (this.room?.localParticipant) {
       this.room.localParticipant.setMicrophoneEnabled(!shouldMute);
     }
+  }
+
+  // --- Device selection (mic / speaker / camera) ---
+  // List devices of a kind: 'audioinput' | 'audiooutput' | 'videoinput'.
+  // eslint-disable-next-line class-methods-use-this
+  async getDevices(kind) {
+    try {
+      return await Room.getLocalDevices(kind);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Switch the active mic/speaker/camera to a chosen device (e.g. headphones).
+  async switchDevice(kind, deviceId) {
+    if (this.room && deviceId) {
+      await this.room.switchActiveDevice(kind, deviceId);
+    }
+  }
+
+  // Speaker toggle is only meaningful where the browser supports output selection
+  // (desktop + Android Chrome). iOS Safari controls the speaker at the OS level.
+  // eslint-disable-next-line class-methods-use-this
+  supportsSpeakerSelection() {
+    return supportsAudioOutputSelection();
+  }
+
+  // --- Video (internal calls only) ---
+  async setCameraEnabled(enabled) {
+    if (!this.room?.localParticipant) return;
+    await this.room.localParticipant.setCameraEnabled(enabled);
+    if (enabled) {
+      // Emit the local camera track so the UI can show a self-view tile.
+      const pub = this.room.localParticipant.getTrackPublication(
+        Track.Source.Camera
+      );
+      if (pub?.videoTrack) {
+        this.dispatchEvent(
+          new CustomEvent('video:track', {
+            detail: { track: pub.videoTrack, remote: false },
+          })
+        );
+      }
+    }
+  }
+
+  isCameraEnabled() {
+    return !!this.room?.localParticipant?.isCameraEnabled;
   }
 
   endClientCall() {
