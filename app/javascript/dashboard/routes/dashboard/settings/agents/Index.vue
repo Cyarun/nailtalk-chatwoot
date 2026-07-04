@@ -23,9 +23,6 @@ const getters = useStoreGetters();
 const store = useStore();
 const { t } = useI18n();
 
-const currentUser = useMapGetter('getCurrentUser');
-const currentUserId = computed(() => currentUser.value?.id);
-
 // Start an internal (agent<->agent) call: ring the colleague, and join the room
 // ourselves so we're connected the moment they answer.
 const callColleague = async agent => {
