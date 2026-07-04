@@ -21,6 +21,7 @@ class Webhooks::LivekitController < ActionController::API
     # a signed nailtalk_press_9 event). NOT on participant_joined - that rang the
     # agent for every inbound call before the caller chose a human.
     enqueue_inbound_call if event == 'nailtalk_press_9'
+    set_recording_url if event == 'nailtalk_call_ended'
     head :ok
   end
 
@@ -85,6 +86,23 @@ class Webhooks::LivekitController < ActionController::API
     Voice::CallStatus::Manager.new(call: call).process_status_update(new_status)
   rescue StandardError => e
     Rails.logger.error(%Q{[livekit-webhook] end call failed: #{e.class} #{e.message}})
+  end
+
+  # Set the recording URL on the Call (from the IVR's nailtalk_call_ended signal) so the
+  # audio player appears in the conversation. Then touch the message to re-broadcast.
+  def set_recording_url
+    url = payload['recording_url']
+    call_id = attributes['sip.callID'].presence || payload.dig('room', 'name')
+    return if url.blank? || call_id.blank?
+
+    call = Call.where(provider: :livekit).find_by(provider_call_id: call_id)
+    call ||= Call.where(provider: :livekit).where("meta ->> ? = ?", 'room_name', payload.dig('room', 'name')).order(:created_at).last
+    return unless call
+
+    call.update!(recording_url: url)
+    call.message&.touch
+  rescue StandardError => e
+    Rails.logger.error("[livekit-webhook] set recording_url failed: #{e.class} #{e.message}")
   end
 
   def normalize_e164(num)
