@@ -49,7 +49,12 @@ class Voice::OutboundCallBuilder
   end
 
   def initiate_call!
-    inbox.channel.initiate_call(to: contact.phone_number)[:call_sid]
+    @call_result = inbox.channel.initiate_call(to: contact.phone_number)
+    @call_result[:call_sid] || @call_result[:sip_call_id] || @call_result[:room_name]
+  end
+
+  def livekit?
+    inbox.channel.respond_to?(:livekit_voice?) && inbox.channel.livekit_voice?
   end
 
   def create_call!(conversation, call_sid)
@@ -59,13 +64,13 @@ class Voice::OutboundCallBuilder
       conversation: conversation,
       contact: contact,
       accepted_by_agent: user,
-      provider: :twilio,
+      provider: livekit? ? :livekit : :twilio,
       direction: :outgoing,
       status: 'ringing',
       provider_call_id: call_sid,
       meta: { 'initiated_at' => Time.zone.now.to_i }
     )
-    call.update!(conference_sid: call.default_conference_sid)
+    call.update!(conference_sid: call.default_conference_sid) unless livekit?
     call
   end
 end
