@@ -84,14 +84,21 @@ class LiveKitVoiceClient extends EventTarget {
         this.room.startAudio().catch(() => {});
       }
     });
+    const roomRef = this.room;
     this.room.on(RoomEvent.Disconnected, (reason) => {
       // eslint-disable-next-line no-console
       console.info('LiveKit room disconnected', reason);
       // However the call ends (agent hangs up, the OTHER side hangs up, network drop),
-      // release the mic/camera so the browser tab's device indicator turns off.
-      this._stopLocalTracks();
+      // release the mic/camera so the browser tab's device indicator turns off. Operate
+      // on the captured room ref and never let cleanup throw into the SDK.
+      try {
+        this._stopLocalTracks(roomRef);
+      } catch (e) {
+        // best-effort
+      }
       this._cleanupAudio();
-      this.room = null;
+      // Only clear this.room if it's still THIS room (don't clobber a newer call).
+      if (this.room === roomRef) this.room = null;
       this.dispatchEvent(createCallDisconnectedEvent());
     });
 
@@ -179,14 +186,18 @@ class LiveKitVoiceClient extends EventTarget {
     this.dispatchEvent(createCallDisconnectedEvent());
   }
 
-  _stopLocalTracks() {
-    const lp = this.room?.localParticipant;
+  _stopLocalTracks(room = this.room) {
+    const lp = room?.localParticipant;
     if (!lp) return;
     try {
-      lp.trackPublications.forEach(pub => {
-        // stop() releases the underlying MediaStreamTrack (frees the device).
-        pub.track?.stop();
-        if (pub.track) lp.unpublishTrack(pub.track).catch(() => {});
+      // Copy first — unpublishing while iterating the live map can throw.
+      const pubs = Array.from(lp.trackPublications?.values?.() || []);
+      pubs.forEach(pub => {
+        try {
+          pub.track?.stop(); // releases the underlying MediaStreamTrack (frees the device)
+        } catch (e) {
+          // ignore per-track
+        }
       });
     } catch (e) {
       // best-effort — disconnect(true) is the backstop.
