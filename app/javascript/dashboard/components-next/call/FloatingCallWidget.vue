@@ -13,6 +13,7 @@ import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
+import CallVideoTiles from 'dashboard/components-next/call/CallVideoTiles.vue';
 import countriesList from 'shared/constants/countries.js';
 
 const RINGTONE_URL = '/audio/dashboard/ringtone.mp3';
@@ -50,9 +51,10 @@ const isLivekitActive = computed(
 const showSpeaker = computed(
   () => isLivekitActive.value && LiveKitVoiceClient.supportsSpeakerSelection()
 );
-// Video (camera) parked for a later phase — the client-side plumbing exists but the
-// video-tile UI isn't built yet, so keep the camera button hidden for now.
-const showVideo = computed(() => false);
+// Video (camera) available on internal (agent<->agent) LiveKit calls only.
+const showVideo = computed(
+  () => isLivekitActive.value && activeCall.value?.callKind === 'internal'
+);
 
 const toggleSpeaker = async () => {
   if (!isLivekitActive.value) return;
@@ -346,6 +348,9 @@ onBeforeUnmount(stopRingtone);
     />
 
     <!-- Main Call Widget -->
+    <!-- Video tiles (internal call, camera on) -->
+    <CallVideoTiles v-if="hasActiveCall && showVideo && isCameraOn" />
+
     <CallCard
       v-if="hasActiveCall || primaryIncomingCall"
       :call="activeCall || primaryIncomingCall"
