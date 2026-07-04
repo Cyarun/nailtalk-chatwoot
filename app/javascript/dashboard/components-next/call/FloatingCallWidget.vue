@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useCallSession } from 'dashboard/composables/useCallSession';
@@ -54,6 +54,18 @@ const showSpeaker = computed(() => isLivekitActive.value);
 // Video (camera) available on internal (agent<->agent) LiveKit calls only.
 const showVideo = computed(
   () => isLivekitActive.value && activeCall.value?.callKind === 'internal'
+);
+// True once the OTHER side publishes video, so we render the tiles + show their video
+// even if we haven't turned our own camera on.
+const hasRemoteVideo = ref(false);
+const onAnyVideoTrack = event => {
+  if (event.detail?.remote) hasRemoteVideo.value = true;
+};
+onMounted(() =>
+  LiveKitVoiceClient.addEventListener('video:track', onAnyVideoTrack)
+);
+onBeforeUnmount(() =>
+  LiveKitVoiceClient.removeEventListener('video:track', onAnyVideoTrack)
 );
 
 const toggleSpeaker = async () => {
@@ -319,14 +331,36 @@ watch(
   shouldRing => {
     if (shouldRing) {
       ringtone.play().catch(() => {});
+      // Mobile browsers often block the ringtone audio (autoplay policy). Vibrate as a
+      // fallback so the phone still signals an incoming call, repeating while ringing.
+      startVibrate();
     } else {
       stopRingtone();
+      stopVibrate();
     }
   },
   { immediate: true }
 );
 
-onBeforeUnmount(stopRingtone);
+let vibrateTimer = null;
+const startVibrate = () => {
+  if (!navigator.vibrate || vibrateTimer) return;
+  const pulse = () => navigator.vibrate([600, 400]);
+  pulse();
+  vibrateTimer = setInterval(pulse, 1500);
+};
+const stopVibrate = () => {
+  if (vibrateTimer) {
+    clearInterval(vibrateTimer);
+    vibrateTimer = null;
+  }
+  navigator.vibrate?.(0);
+};
+
+onBeforeUnmount(() => {
+  stopRingtone();
+  stopVibrate();
+});
 </script>
 
 <template>
@@ -349,7 +383,7 @@ onBeforeUnmount(stopRingtone);
 
     <!-- Main Call Widget -->
     <!-- Video tiles (internal call, camera on) -->
-    <CallVideoTiles v-if="hasActiveCall && showVideo && isCameraOn" />
+    <CallVideoTiles v-if="hasActiveCall && showVideo && (isCameraOn || hasRemoteVideo)" />
 
     <CallCard
       v-if="hasActiveCall || primaryIncomingCall"
