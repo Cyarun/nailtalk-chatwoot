@@ -6,6 +6,8 @@ import { useCallSession } from 'dashboard/composables/useCallSession';
 import { setWhatsappCallMuted } from 'dashboard/composables/useWhatsappCallSession';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
 import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
+import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
+import { useCallsStore } from 'dashboard/stores/calls';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
@@ -148,6 +150,18 @@ const goToConversation = call => {
 const handleEndCall = async () => {
   const call = activeCall.value;
   if (!call) return;
+
+  // Internal (agent<->agent) calls have no inbox/conversation — end via the internal
+  // endpoint + tear down the LiveKit room directly.
+  if (call.callKind === 'internal') {
+    try {
+      LiveKitVoiceClient.endClientCall();
+      if (call.callId) await VoiceAPI.endInternalCall(call.callId);
+    } finally {
+      useCallsStore().removeCall(call.callSid);
+    }
+    return;
+  }
 
   const inboxId = call.inboxId || getCallInfo(call).conversation?.inbox_id;
   if (!inboxId) return;
