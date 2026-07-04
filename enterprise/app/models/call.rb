@@ -103,6 +103,9 @@ class Call < ApplicationRecord
   end
 
   def recording_url
+    # Prefer a directly-set public URL (LiveKit -> MinIO); fall back to an ActiveStorage
+    # blob URL (the Twilio recording-attachment path).
+    return read_attribute(:recording_url) if read_attribute(:recording_url).present?
     return nil unless recording.attached?
 
     Rails.application.routes.url_helpers.rails_blob_url(recording)
