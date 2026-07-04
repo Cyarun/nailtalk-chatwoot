@@ -38,10 +38,25 @@ class LiveKitVoiceClient extends EventTarget {
   }
 
   // Join the caller's room + publish the mic (this is "answering" the call).
+  // Request mic permission UP FRONT (in the answer/call click gesture) BEFORE connecting.
+  // If we let LiveKit prompt for the mic mid-connect (setMicrophoneEnabled after connect),
+  // the permission dialog races/interrupts the WebRTC handshake and the call aborts as a
+  // client-initiated disconnect — especially on mobile. Prompting first (and reusing the
+  // granted stream) avoids that entirely.
+  async ensureMicPermission() {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // We only needed the permission grant + to warm the device; stop the temp track so
+    // LiveKit acquires its own (the OS keeps the permission granted for the session).
+    stream.getTracks().forEach(t => t.stop());
+  }
+
   async joinClientCall() {
     if (!this.token || !this.url) {
       throw new Error("LiveKit token not initialized");
     }
+    // Ask for the mic BEFORE connecting (in the user gesture) — see ensureMicPermission.
+    await this.ensureMicPermission();
     // Never leave a previous room connected — disconnect it first so we never leak a
     // silent background call (no duplicate/zombie connections).
     if (this.room) {

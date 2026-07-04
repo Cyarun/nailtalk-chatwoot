@@ -48,9 +48,9 @@ const isCameraOn = ref(false);
 const isLivekitActive = computed(
   () => activeCall.value?.provider === VOICE_CALL_PROVIDERS.LIVEKIT
 );
-const showSpeaker = computed(
-  () => isLivekitActive.value && LiveKitVoiceClient.supportsSpeakerSelection()
-);
+// Show the speaker button on any LiveKit call. Where the browser doesn't support output-
+// device selection (iOS Safari), toggling is a no-op but the button still shows for UX.
+const showSpeaker = computed(() => isLivekitActive.value);
 // Video (camera) available on internal (agent<->agent) LiveKit calls only.
 const showVideo = computed(
   () => isLivekitActive.value && activeCall.value?.callKind === 'internal'
