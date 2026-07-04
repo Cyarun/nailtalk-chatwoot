@@ -25,6 +25,7 @@ import CopilotContainer from 'dashboard/components/copilot/CopilotContainer.vue'
 
 import MobileSidebarLauncher from 'dashboard/components-next/sidebar/MobileSidebarLauncher.vue';
 import { useCallsStore } from 'dashboard/stores/calls';
+import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
 
 export default {
   components: {
@@ -102,7 +103,28 @@ export default {
       immediate: true,
     },
   },
+  mounted() {
+    // Request microphone permission up front (once), so when a call happens the mic is
+    // already granted and the call connects instantly — no mid-call permission prompt
+    // (which is bad UX and can race/abort the WebRTC connect). Only prompts if not
+    // already granted.
+    this.requestMicPermissionOnce();
+  },
   methods: {
+    async requestMicPermissionOnce() {
+      try {
+        // If the Permissions API says it's already granted, no need to prompt.
+        if (navigator.permissions?.query) {
+          const status = await navigator.permissions
+            .query({ name: 'microphone' })
+            .catch(() => null);
+          if (status && status.state === 'granted') return;
+        }
+        await LiveKitVoiceClient.ensureMicPermission();
+      } catch (e) {
+        // User may deny — that's fine, they'll be prompted at call time as a fallback.
+      }
+    },
     toggleMobileSidebar() {
       this.isMobileSidebarOpen = !this.isMobileSidebarOpen;
     },
