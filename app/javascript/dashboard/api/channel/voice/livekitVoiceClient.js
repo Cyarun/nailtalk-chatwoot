@@ -55,6 +55,16 @@ class LiveKitVoiceClient extends EventTarget {
     if (!this.token || !this.url) {
       throw new Error("LiveKit token not initialized");
     }
+    // Guard against a concurrent second join for the same room (a double-invoke would
+    // disconnect the first attempt as "client initiated" and break the call).
+    if (this._joining) return this._joining;
+    this._joining = this._doJoin().finally(() => {
+      this._joining = null;
+    });
+    return this._joining;
+  }
+
+  async _doJoin() {
     // Ask for the mic BEFORE connecting (in the user gesture) — see ensureMicPermission.
     await this.ensureMicPermission();
     // Never leave a previous room connected — disconnect it first so we never leak a

@@ -28,6 +28,10 @@ const { t } = useI18n();
 const callColleague = async agent => {
   try {
     const res = await VoiceAPI.initiateInternalCall(agent.id);
+    // Just add the outbound call. The FloatingCallWidget's auto-join watcher picks up a
+    // non-active OUTBOUND call and joins the room itself (fetching the token via the
+    // internal-call flow). We must NOT join or setCallActive here — doing either caused a
+    // DOUBLE joinClientCall (the first aborted as a client-initiated disconnect).
     useCallsStore().addCall({
       callSid: res.room_name,
       callId: res.id,
@@ -38,11 +42,6 @@ const callColleague = async agent => {
       callKind: 'internal',
       caller: { name: agent.name },
     });
-    LiveKitVoiceClient.token = res.token.token;
-    LiveKitVoiceClient.url = res.token.livekit_url;
-    LiveKitVoiceClient.roomName = res.room_name;
-    await LiveKitVoiceClient.joinClientCall({ callSid: res.room_name });
-    useCallsStore().setCallActive(res.room_name);
     useAlert(`Calling ${agent.name}…`);
   } catch (e) {
     // eslint-disable-next-line no-console
