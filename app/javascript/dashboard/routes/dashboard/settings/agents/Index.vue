@@ -45,7 +45,9 @@ const callColleague = async agent => {
     useCallsStore().setCallActive(res.room_name);
     useAlert(`Calling ${agent.name}…`);
   } catch (e) {
-    useAlert('Could not start the call');
+    // eslint-disable-next-line no-console
+    console.error('callColleague failed:', e);
+    useAlert(e?.message || 'Could not start the call');
   }
 };
 
