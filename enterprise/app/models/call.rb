@@ -43,9 +43,11 @@ class Call < ApplicationRecord
   enum :direction, { incoming: 0, outgoing: 1 }
 
   belongs_to :account
-  belongs_to :inbox
-  belongs_to :conversation
-  belongs_to :contact
+  belongs_to :caller_user, class_name: 'User', foreign_key: :accepted_by_agent_id, optional: true
+  belongs_to :callee_user, class_name: 'User', optional: true
+  belongs_to :inbox, optional: true
+  belongs_to :conversation, optional: true
+  belongs_to :contact, optional: true
   belongs_to :message, optional: true, inverse_of: :call
   belongs_to :accepted_by_agent, class_name: 'User', optional: true
 

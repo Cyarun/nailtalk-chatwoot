@@ -9,7 +9,7 @@ require 'livekit'
 # Twilio JWT. The frontend LiveKitVoiceClient uses { token, livekit_url, room_name } to
 # Room.connect() and publish the mic.
 class Voice::Provider::Livekit::TokenService
-  pattr_initialize [:inbox!, :user!, :account!, { room_name: nil }]
+  pattr_initialize [:user!, :account!, { inbox: nil, room_name: nil }]
 
   def generate
     token = ::LiveKit::AccessToken.new(api_key: api_key, api_secret: api_secret)
@@ -30,7 +30,7 @@ class Voice::Provider::Livekit::TokenService
       provider: "livekit",
       voice_enabled: true,
       account_id: account.id,
-      inbox_id: inbox.id,
+      inbox_id: inbox&.id,
       agent_id: user.id
     }
   end
