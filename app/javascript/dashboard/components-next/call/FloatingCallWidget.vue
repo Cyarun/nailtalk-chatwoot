@@ -95,6 +95,21 @@ const countryCodeToFlag = code => {
 };
 
 const getCallInfo = call => {
+  // Internal (agent<->agent) calls have no conversation/inbox — show the colleague's
+  // name + an "Internal call" label instead of the customer-support fallbacks.
+  if (call?.callKind === 'internal') {
+    return {
+      conversation: null,
+      inbox: null,
+      contactName: call?.caller?.name || 'Colleague',
+      phoneNumber: '',
+      inboxName: 'Internal call',
+      location: 'Internal call',
+      countryFlag: '',
+      hasLocation: false,
+      avatar: call?.caller?.avatar,
+    };
+  }
   const conversation = store.getters.getConversationById(call?.conversationId);
   // Look up inbox from the call's own inboxId — the conversation can drop out
   // of the Vuex store when the user navigates between inbox views, so going
@@ -255,7 +270,7 @@ onBeforeUnmount(stopRingtone);
 <template>
   <div
     v-if="incomingCalls.length || hasActiveCall"
-    class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 w-[400px]"
+    class="fixed ltr:right-4 rtl:left-4 bottom-4 z-50 flex flex-col gap-3 w-[calc(100vw-2rem)] sm:w-[400px] max-w-[400px]"
   >
     <!-- Stacked incoming calls (shown above the primary card) -->
     <CallCard
