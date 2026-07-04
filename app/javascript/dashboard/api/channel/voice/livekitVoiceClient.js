@@ -195,6 +195,31 @@ class LiveKitVoiceClient extends EventTarget {
     return !!this.room?.localParticipant?.isCameraEnabled;
   }
 
+  // Remote participants' already-subscribed video tracks — so a video-tile component that
+  // mounts AFTER the remote track arrived can still attach it (the 'video:track' event may
+  // have fired before the component's listener existed).
+  getRemoteVideoTracks() {
+    const tracks = [];
+    const participants = this.room?.remoteParticipants;
+    if (!participants) return tracks;
+    participants.forEach(p => {
+      p.trackPublications?.forEach(pub => {
+        if (pub.kind === Track.Kind.Video && pub.videoTrack) {
+          tracks.push(pub.videoTrack);
+        }
+      });
+    });
+    return tracks;
+  }
+
+  // Our own published camera track (for the self-view tile), if the camera is on.
+  getLocalVideoTrack() {
+    const pub = this.room?.localParticipant?.getTrackPublication?.(
+      Track.Source.Camera
+    );
+    return pub?.videoTrack || null;
+  }
+
   endClientCall() {
     if (this.room) {
       // Explicitly STOP every local track first so the mic/camera hardware is really

@@ -132,6 +132,7 @@ Rails.application.routes.draw do
           # Internal (agent<->agent, AI<->agent) calls over LiveKit — no inbox/PSTN.
           resources :internal_calls, only: [:create, :destroy] do
             get :token, on: :member
+            get :active, on: :collection
           end
           resources :dashboard_apps, only: [:index, :show, :create, :update, :destroy]
           namespace :channels do

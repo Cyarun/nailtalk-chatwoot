@@ -16,10 +16,33 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
     }
   end
 
+  # GET /api/v1/accounts/:account_id/internal_calls/active
+  # Session rehydrate: the current user's in-progress internal call (if any), so the
+  # browser can rejoin the LiveKit room after a page refresh. Returns null if none.
+  def active
+    call = Current.account.calls
+                  .where(call_kind: 'internal', status: %i[ringing in_progress])
+                  .where('caller_user_id = :id OR callee_user_id = :id', id: Current.user.id)
+                  .order(created_at: :desc).first
+    return render(json: { active: nil }) unless call
+
+    render json: {
+      active: {
+        id: call.id, room_name: call.meta['room_name'], status: call.status,
+        direction: call.caller_user_id == Current.user.id ? 'outbound' : 'inbound',
+        peer: (call.caller_user_id == Current.user.id ? call.callee_user : call.caller_user)&.name,
+        token: mint_token(call.meta['room_name']),
+      },
+    }
+  end
+
   # GET /api/v1/accounts/:account_id/internal_calls/:id/token
   # Either party fetches a LiveKit token for the internal room to join it.
   def token
     call = internal_call!
+    # A party fetching a token means they're joining → the call is now in progress. This
+    # lets the rehydrate endpoint know an active call exists to rejoin after a refresh.
+    call.update!(status: :in_progress) if call.status == 'ringing'
     render json: mint_token(call.meta['room_name']).merge(room_name: call.meta['room_name'])
   end
 

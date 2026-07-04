@@ -312,9 +312,44 @@ export function useCallSession() {
     { immediate: true }
   );
 
+  // Session rehydrate for INTERNAL calls after a page refresh. Internal calls have no
+  // conversation, so seedCallsFromHydratedMessages can't restore them. Query the backend
+  // for my in-progress internal call and rejoin the still-alive LiveKit room.
+  const rehydrateInternalCall = async () => {
+    try {
+      const { active } = await VoiceAPI.getActiveInternalCall();
+      if (!active?.room_name) return;
+      callsStore.addCall({
+        callSid: active.room_name,
+        callId: active.id,
+        conversationId: null,
+        inboxId: null,
+        callDirection:
+          active.direction === 'outbound'
+            ? VOICE_CALL_DIRECTION.OUTBOUND
+            : VOICE_CALL_DIRECTION.INBOUND,
+        provider: VOICE_CALL_PROVIDERS.LIVEKIT,
+        callKind: 'internal',
+        caller: { name: active.peer },
+      });
+      // If it was already in progress (not just ringing), rejoin the room immediately.
+      if (active.status === 'in_progress') {
+        LiveKitVoiceClient.token = active.token.token;
+        LiveKitVoiceClient.url = active.token.livekit_url;
+        LiveKitVoiceClient.roomName = active.room_name;
+        await LiveKitVoiceClient.joinClientCall({ callSid: active.room_name });
+        callsStore.setCallActive(active.room_name);
+        globalDurationTimer?.start();
+      }
+    } catch (e) {
+      // no active call / not reachable — nothing to restore
+    }
+  };
+
   onMounted(() => {
     attachGlobalsOnFirstMount(callsStore);
     seedCallsFromHydratedMessages();
+    rehydrateInternalCall();
   });
 
   // Re-seed when conversations stream in after mount; addCall merges by callSid

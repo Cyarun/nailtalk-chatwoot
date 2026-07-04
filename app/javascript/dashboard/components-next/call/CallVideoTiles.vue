@@ -10,13 +10,11 @@ const remoteEl = ref(null);
 const localEl = ref(null);
 let attached = [];
 
-const onVideoTrack = event => {
-  const { track, remote } = event.detail || {};
+const attachTrack = (track, remote) => {
   if (!track) return;
   const target = remote ? remoteEl.value : localEl.value;
   if (!target) return;
-  // Detach any previous track from this element, then attach the new one.
-  target.innerHTML = '';
+  target.innerHTML = ''; // replace any previous track in this tile
   const el = track.attach();
   el.autoplay = true;
   el.playsInline = true;
@@ -26,7 +24,18 @@ const onVideoTrack = event => {
   attached.push({ track, el });
 };
 
+const onVideoTrack = event => {
+  const { track, remote } = event.detail || {};
+  attachTrack(track, remote);
+};
+
 onMounted(() => {
+  // Attach any video tracks that ALREADY exist (the remote/local track may have been
+  // published before this component mounted, so its 'video:track' event was missed).
+  LiveKitVoiceClient.getRemoteVideoTracks().forEach(t => attachTrack(t, true));
+  const local = LiveKitVoiceClient.getLocalVideoTrack();
+  if (local) attachTrack(local, false);
+  // ...then listen for future tracks (camera toggled on, other side joins video).
   LiveKitVoiceClient.addEventListener('video:track', onVideoTrack);
 });
 

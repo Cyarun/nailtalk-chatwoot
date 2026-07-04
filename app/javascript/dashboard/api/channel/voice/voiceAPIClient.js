@@ -49,6 +49,13 @@ class VoiceAPI extends ApiClient {
       .then(r => r.data);
   }
 
+  // Session rehydrate: my in-progress internal call (to rejoin after a page refresh).
+  getActiveInternalCall() {
+    return axios
+      .get(`${this.baseUrl()}/internal_calls/active`)
+      .then(r => r.data);
+  }
+
   endInternalCall(callId) {
     return axios
       .delete(`${this.baseUrl()}/internal_calls/${callId}`)
