@@ -54,6 +54,8 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.outbound_connected': this.onVoiceCallOutboundConnected,
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
+      'internal_call.ringing': this.onInternalCallRinging,
+      'internal_call.ended': this.onInternalCallEnded,
     };
   }
 
@@ -294,6 +296,30 @@ class ActionCableConnector extends BaseActionCableConnector {
       iceServers: data.ice_servers,
       caller: data.caller,
     });
+  };
+
+  // Internal (agent<->agent) call: the callee's tab receives this targeted ring
+  // (broadcast to their pubsub_token). Add it to the calls store so the floating
+  // widget rings, exactly like an inbound call. Only ring if online.
+  onInternalCallRinging = data => {
+    const availability = this.app.$store.getters.getCurrentUserAvailability;
+    if (availability !== 'online') return;
+    useCallsStore().addCall({
+      callSid: data.callSid || data.roomName,
+      callId: data.callId,
+      conversationId: null,
+      inboxId: null,
+      callDirection: VOICE_CALL_DIRECTION.INBOUND,
+      provider: VOICE_CALL_PROVIDERS.LIVEKIT,
+      callKind: 'internal',
+      caller: data.caller,
+    });
+  };
+
+  // Internal call ended (either party hung up) — drop it from the store.
+  // eslint-disable-next-line class-methods-use-this
+  onInternalCallEnded = data => {
+    if (data?.callSid) useCallsStore().removeCall(data.callSid);
   };
 
   // `connect` is the WebRTC tunnel-ready signal (fires ~20s before pickup

@@ -23,6 +23,15 @@ class LiveKitVoiceClient extends EventTarget {
     return data;
   }
 
+  // Fetch a token for an internal (agent<->agent) call room (no inbox).
+  async initializeInternalDevice(callId) {
+    const data = await VoiceAPI.getInternalCallToken(callId);
+    this.token = data.token;
+    this.url = data.livekit_url;
+    this.roomName = data.room_name;
+    return data;
+  }
+
   // Join the caller's room + publish the mic (this is "answering" the call).
   async joinClientCall() {
     if (!this.token || !this.url) {

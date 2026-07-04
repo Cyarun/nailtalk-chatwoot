@@ -129,6 +129,10 @@ Rails.application.routes.draw do
             end
           end
           resources :campaigns, only: [:index, :create, :show, :update, :destroy]
+          # Internal (agent<->agent, AI<->agent) calls over LiveKit — no inbox/PSTN.
+          resources :internal_calls, only: [:create, :destroy] do
+            get :token, on: :member
+          end
           resources :dashboard_apps, only: [:index, :show, :create, :update, :destroy]
           namespace :channels do
             resource :twilio_channel, only: [:create]

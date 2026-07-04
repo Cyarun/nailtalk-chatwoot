@@ -146,6 +146,16 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         return { callId: call.callId };
       }
 
+      // Internal (agent<->agent) call: no inbox/conference — just fetch a token for
+      // the internal room and join it. Both parties land in the same LiveKit room.
+      if (isLivekitCall(call) && call?.callKind === 'internal') {
+        await LiveKitVoiceClient.initializeInternalDevice(call.callId);
+        await LiveKitVoiceClient.joinClientCall({ callSid });
+        callsStore.setCallActive(callSid);
+        globalDurationTimer?.start();
+        return { callSid };
+      }
+
       if (isLivekitCall(call)) {
         // LiveKit: fetch a join token for the caller room, connect + publish mic.
         // Mark the conference joined server-side (assigns the call to this agent).
