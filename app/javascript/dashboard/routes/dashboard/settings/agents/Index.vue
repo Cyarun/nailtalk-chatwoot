@@ -15,10 +15,42 @@ import EditAgent from './EditAgent.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import SettingsLayout from '../SettingsLayout.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
+import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
+import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
+import { useCallsStore } from 'dashboard/stores/calls';
 
 const getters = useStoreGetters();
 const store = useStore();
 const { t } = useI18n();
+
+const currentUser = useMapGetter('getCurrentUser');
+const currentUserId = computed(() => currentUser.value?.id);
+
+// Start an internal (agent<->agent) call: ring the colleague, and join the room
+// ourselves so we're connected the moment they answer.
+const callColleague = async agent => {
+  try {
+    const res = await VoiceAPI.initiateInternalCall(agent.id);
+    useCallsStore().addCall({
+      callSid: res.room_name,
+      callId: res.id,
+      conversationId: null,
+      inboxId: null,
+      callDirection: 'outbound',
+      provider: 'livekit',
+      callKind: 'internal',
+      caller: { name: agent.name },
+    });
+    LiveKitVoiceClient.token = res.token.token;
+    LiveKitVoiceClient.url = res.token.livekit_url;
+    LiveKitVoiceClient.roomName = res.room_name;
+    await LiveKitVoiceClient.joinClientCall({ callSid: res.room_name });
+    useCallsStore().setCallActive(res.room_name);
+    useAlert(`Calling ${agent.name}…`);
+  } catch (e) {
+    useAlert('Could not start the call');
+  }
+};
 
 const loading = ref({});
 const showAddPopup = ref(false);
@@ -254,6 +286,14 @@ const confirmDeletion = () => {
             </div>
           </div>
           <div class="flex justify-end gap-3">
+            <Button
+              v-if="agent.id !== currentUserId"
+              v-tooltip.top="'Call colleague'"
+              icon="i-lucide-phone"
+              teal
+              sm
+              @click="callColleague(agent)"
+            />
             <Button
               v-if="showEditAction(agent)"
               v-tooltip.top="$t('AGENT_MGMT.EDIT.BUTTON_TEXT')"
