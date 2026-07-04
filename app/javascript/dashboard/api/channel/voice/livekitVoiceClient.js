@@ -203,10 +203,10 @@ class LiveKitVoiceClient extends EventTarget {
     const participants = this.room?.remoteParticipants;
     if (!participants) return tracks;
     participants.forEach(p => {
+      // A publication with a videoTrack is a video track (per LiveKit's documented
+      // getTrackPublication(...).videoTrack pattern) — don't rely on pub.kind.
       p.trackPublications?.forEach(pub => {
-        if (pub.kind === Track.Kind.Video && pub.videoTrack) {
-          tracks.push(pub.videoTrack);
-        }
+        if (pub.videoTrack) tracks.push(pub.videoTrack);
       });
     });
     return tracks;
