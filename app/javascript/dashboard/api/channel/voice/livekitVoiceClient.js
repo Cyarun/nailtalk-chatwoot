@@ -28,6 +28,16 @@ class LiveKitVoiceClient extends EventTarget {
     if (!this.token || !this.url) {
       throw new Error("LiveKit token not initialized");
     }
+    // Never leave a previous room connected — disconnect it first so we never leak a
+    // silent background call (no duplicate/zombie connections).
+    if (this.room) {
+      try {
+        await this.room.disconnect();
+      } catch (e) {
+        // ignore — we are replacing it anyway
+      }
+      this.room = null;
+    }
     this.room = new Room({ adaptiveStream: true, dynacast: true });
     this.room.on(RoomEvent.Disconnected, () => {
       this.dispatchEvent(createCallDisconnectedEvent());
