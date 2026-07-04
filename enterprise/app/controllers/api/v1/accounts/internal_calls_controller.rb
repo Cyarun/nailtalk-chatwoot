@@ -32,7 +32,8 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
     end
     ActionCableBroadcastJob.perform_later(
       [call.caller_user&.pubsub_token, call.callee_user&.pubsub_token].compact,
-      'internal_call.ended', { callSid: call.meta['room_name'], callId: call.id }
+      'internal_call.ended',
+      { account_id: Current.account.id, callSid: call.meta['room_name'], callId: call.id }
     )
     render json: { status: 'success', id: call.id }
   end

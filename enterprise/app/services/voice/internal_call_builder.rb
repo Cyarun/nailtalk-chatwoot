@@ -31,6 +31,9 @@ class Voice::InternalCallBuilder
   # FloatingCallWidget shows an incoming internal call.
   def ring_callee(call, room_name)
     payload = {
+      # account_id is REQUIRED — the frontend's isAValidEvent drops any event whose
+      # account_id doesn't match the current account (silently, no ring otherwise).
+      account_id: account.id,
       callSid: room_name, roomName: room_name, provider: "livekit",
       callDirection: "inbound", callKind: "internal", callId: call.id,
       caller: { id: caller_user.id, name: caller_user.name }
