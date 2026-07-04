@@ -28,6 +28,11 @@ const { t } = useI18n();
 const callColleague = async agent => {
   try {
     const res = await VoiceAPI.initiateInternalCall(agent.id);
+    // The colleague is already on a call — don't ring, just tell the caller.
+    if (res.status === 'busy') {
+      useAlert(res.message || `${agent.name} is already on a call`);
+      return;
+    }
     // Just add the outbound call. The FloatingCallWidget's auto-join watcher picks up a
     // non-active OUTBOUND call and joins the room itself (fetching the token via the
     // internal-call flow). We must NOT join or setCallActive here — doing either caused a
@@ -44,6 +49,12 @@ const callColleague = async agent => {
     });
     useAlert(`Calling ${agent.name}…`);
   } catch (e) {
+    // A 409 (busy) surfaces here via axios; show the friendly message.
+    const busy = e?.response?.data;
+    if (busy?.status === 'busy') {
+      useAlert(busy.message || `${agent.name} is already on a call`);
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error('callColleague failed:', e);
     useAlert(e?.message || 'Could not start the call');

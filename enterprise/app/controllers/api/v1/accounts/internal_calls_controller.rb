@@ -14,6 +14,9 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
       status: 'success', id: call.id, room_name: call.meta['room_name'],
       token: mint_token(call.meta['room_name'])
     }
+  rescue Voice::InternalCallBuilder::CalleeBusyError
+    # The colleague is already on a call — tell the caller instead of double-ringing them.
+    render json: { status: 'busy', message: "#{callee.name} is already on a call" }, status: :conflict
   end
 
   # GET /api/v1/accounts/:account_id/internal_calls/active

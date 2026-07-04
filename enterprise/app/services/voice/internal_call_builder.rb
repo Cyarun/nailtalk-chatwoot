@@ -7,7 +7,13 @@
 class Voice::InternalCallBuilder
   pattr_initialize [:account!, :caller_user!, :callee_user!]
 
+  # Raised when the callee is already on a call — the controller renders a "busy" response
+  # so the caller isn't double-ringing someone who's already engaged.
+  class CalleeBusyError < StandardError; end
+
   def perform!
+    raise CalleeBusyError if callee_busy?
+
     room_name = "nailtalk-internal-#{SecureRandom.hex(6)}"
     call = Call.create!(
       account: account,
@@ -26,6 +32,16 @@ class Voice::InternalCallBuilder
   end
 
   private
+
+  # Is the callee already on a call? Session state across the system: a user has one call
+  # at a time. We check for any live Call (ringing/in_progress) they're a party to, so the
+  # system doesn't double-ring someone who's already engaged.
+  def callee_busy?
+    account.calls
+           .where(status: %i[ringing in_progress])
+           .where('caller_user_id = :id OR callee_user_id = :id', id: callee_user.id)
+           .exists?
+  end
 
   # Broadcast a targeted ring ONLY to the callee (their own pubsub_token stream) so their
   # FloatingCallWidget shows an incoming internal call.
