@@ -25,15 +25,18 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
   def active
     call = Current.account.calls
                   .where(call_kind: 'internal', status: %i[ringing in_progress])
-                  .where('caller_user_id = :id OR callee_user_id = :id', id: Current.user.id)
+                  .where('accepted_by_agent_id = :id OR callee_user_id = :id', id: Current.user.id)
                   .order(created_at: :desc).first
     return render(json: { active: nil }) unless call
 
+    # caller_user is aliased onto accepted_by_agent_id (see Call model) — compare via the
+    # association's id, not a non-existent caller_user_id column.
+    is_caller = call.accepted_by_agent_id == Current.user.id
     render json: {
       active: {
         id: call.id, room_name: call.meta['room_name'], status: call.status,
-        direction: call.caller_user_id == Current.user.id ? 'outbound' : 'inbound',
-        peer: (call.caller_user_id == Current.user.id ? call.callee_user : call.caller_user)&.name,
+        direction: is_caller ? 'outbound' : 'inbound',
+        peer: (is_caller ? call.callee_user : call.caller_user)&.name,
         token: mint_token(call.meta['room_name']),
       },
     }
@@ -72,7 +75,7 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
   def internal_call!
     Current.account.calls
            .where(call_kind: 'internal')
-           .where('caller_user_id = :id OR callee_user_id = :id', id: Current.user.id)
+           .where('accepted_by_agent_id = :id OR callee_user_id = :id', id: Current.user.id)
            .find(params[:id])
   end
 

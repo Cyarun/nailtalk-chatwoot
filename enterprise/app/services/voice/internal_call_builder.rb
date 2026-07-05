@@ -37,9 +37,11 @@ class Voice::InternalCallBuilder
   # at a time. We check for any live Call (ringing/in_progress) they're a party to, so the
   # system doesn't double-ring someone who's already engaged.
   def callee_busy?
+    # caller_user is aliased onto accepted_by_agent_id (see Call model), so query that
+    # real column — caller_user_id is not a database column.
     account.calls
            .where(status: %i[ringing in_progress])
-           .where('caller_user_id = :id OR callee_user_id = :id', id: callee_user.id)
+           .where('accepted_by_agent_id = :id OR callee_user_id = :id', id: callee_user.id)
            .exists?
   end
 
