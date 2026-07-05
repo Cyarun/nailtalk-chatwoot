@@ -332,17 +332,21 @@ export function useCallSession() {
         callKind: 'internal',
         caller: { name: active.peer },
       });
-      // If it was already in progress (not just ringing), rejoin the room immediately.
-      if (active.status === 'in_progress') {
+      // Rejoin the live room after a page refresh (a mid-call reload must reconnect, so
+      // rejoin for both in_progress AND ringing — the LiveKit room still exists server-side).
+      if (active.status === 'in_progress' || active.status === 'ringing') {
         LiveKitVoiceClient.token = active.token.token;
         LiveKitVoiceClient.url = active.token.livekit_url;
         LiveKitVoiceClient.roomName = active.room_name;
         await LiveKitVoiceClient.joinClientCall({ callSid: active.room_name });
         callsStore.setCallActive(active.room_name);
         globalDurationTimer?.start();
+        // eslint-disable-next-line no-console
+        console.info('[rehydrate] rejoined internal call', active.room_name);
       }
     } catch (e) {
-      // no active call / not reachable — nothing to restore
+      // eslint-disable-next-line no-console
+      console.error('[rehydrate] failed to restore internal call:', e);
     }
   };
 
