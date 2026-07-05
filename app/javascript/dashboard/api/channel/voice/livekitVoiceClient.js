@@ -4,9 +4,15 @@ import {
   Track,
   supportsAudioOutputSelection,
 } from "livekit-client";
+import { ref } from "vue";
 import VoiceAPI from "dashboard/api/channel/voice/voiceAPIClient";
 
 const createCallDisconnectedEvent = () => new CustomEvent("call:disconnected");
+
+// Reactive handle on the current LiveKit Room, so Vue composables (useMediaDevices,
+// useTracks, useLocalMedia, ...) built on @livekit/components-core can react to
+// connect/disconnect. The client sets it; composables read it.
+export const liveKitRoomRef = ref(null);
 
 // LiveKitVoiceClient — mirrors TwilioVoiceClient's public surface so useCallSession can
 // drive it the same way, but joins a LiveKit Room (WebRTC) instead of a Twilio Device.
@@ -140,10 +146,12 @@ class LiveKitVoiceClient extends EventTarget {
       this._cleanupAudio();
       // Only clear this.room if it's still THIS room (don't clobber a newer call).
       if (this.room === roomRef) this.room = null;
+      if (liveKitRoomRef.value === roomRef) liveKitRoomRef.value = null;
       this.dispatchEvent(createCallDisconnectedEvent());
     });
 
     await this.room.connect(this.url, this.token);
+    liveKitRoomRef.value = this.room; // expose to Vue composables
     await this.room.localParticipant.setMicrophoneEnabled(true);
     // Unlock playback within the user gesture (mobile Safari/Chrome autoplay).
     if (!this.room.canPlaybackAudio) {
@@ -245,6 +253,7 @@ class LiveKitVoiceClient extends EventTarget {
       this._stopLocalTracks();
       this.room.disconnect(true); // true = stop local tracks
       this.room = null;
+      liveKitRoomRef.value = null;
     }
     this._cleanupAudio();
     this.token = null;

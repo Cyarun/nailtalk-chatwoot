@@ -5,7 +5,10 @@ import { useStore } from 'vuex';
 import { useCallSession } from 'dashboard/composables/useCallSession';
 import { setWhatsappCallMuted } from 'dashboard/composables/useWhatsappCallSession';
 import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
-import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
+import LiveKitVoiceClient, {
+  liveKitRoomRef,
+} from 'dashboard/api/channel/voice/livekitVoiceClient';
+import { useMediaDevices } from 'dashboard/composables/livekit/useMediaDevices';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
 import { useCallsStore } from 'dashboard/stores/calls';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
@@ -68,13 +71,17 @@ onBeforeUnmount(() =>
   LiveKitVoiceClient.removeEventListener('video:track', onAnyVideoTrack)
 );
 
+// Speaker output via the components-core-backed composable (replaces the hand-rolled
+// getDevices/switchDevice on LiveKitVoiceClient — first Option B migration).
+const { devices: audioOutputs, setActiveDevice: setAudioOutput } = useMediaDevices(
+  'audiooutput',
+  liveKitRoomRef
+);
 const toggleSpeaker = async () => {
-  if (!isLivekitActive.value) return;
-  const outputs = await LiveKitVoiceClient.getDevices('audiooutput');
-  if (!outputs.length) return;
+  if (!isLivekitActive.value || !audioOutputs.value.length) return;
   // Cycle to the next output device (e.g. earpiece <-> speaker/headphones).
-  const next = outputs[isSpeakerOn.value ? 0 : outputs.length - 1];
-  await LiveKitVoiceClient.switchDevice('audiooutput', next.deviceId);
+  const next = audioOutputs.value[isSpeakerOn.value ? 0 : audioOutputs.value.length - 1];
+  await setAudioOutput(next.deviceId);
   isSpeakerOn.value = !isSpeakerOn.value;
 };
 
