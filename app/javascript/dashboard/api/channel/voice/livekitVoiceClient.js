@@ -77,7 +77,23 @@ class LiveKitVoiceClient extends EventTarget {
       }
       this.room = null;
     }
-    this.room = new Room({ adaptiveStream: true, dynacast: true });
+    this.room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      // Pin call-quality defaults so a browser/SDK change can't silently regress them.
+      // echo/noise/AGC are browser hints (usually on by default); pinning makes them
+      // explicit. DTX (silence suppression) + RED (packet-loss resilience) protect
+      // intelligibility on mobile/lossy networks. All verified in the LiveKit docs.
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      publishDefaults: {
+        dtx: true,
+        red: true,
+      },
+    });
     this._audioElements = [];
 
     // CRITICAL: play the OTHER participant's audio. Subscribing to a track only makes it
