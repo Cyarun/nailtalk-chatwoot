@@ -70,6 +70,23 @@ export const useCallsStore = defineStore('calls', {
       this.calls = this.calls.filter(c => c.callSid !== callSid);
     },
 
+    // Live call-screening transcript from the IVR screener. Append the caller's spoken
+    // reason to the ringing call's rolling transcript so the agent reads it before answering.
+    setCallTranscript({ callSid, text, isFinal }) {
+      const call = this.calls.find(c => c.callSid === callSid);
+      if (!call) return;
+      const chunk = (text || '').trim();
+      if (!chunk) return;
+      // isFinal chunks accumulate; interim replaces the last (still-forming) segment.
+      call.transcriptFinal = call.transcriptFinal || '';
+      if (isFinal) {
+        call.transcriptFinal = `${call.transcriptFinal} ${chunk}`.trim();
+        call.transcript = call.transcriptFinal;
+      } else {
+        call.transcript = `${call.transcriptFinal} ${chunk}`.trim();
+      }
+    },
+
     setCallActive(callSid) {
       this.calls = this.calls.map(call => ({
         ...call,

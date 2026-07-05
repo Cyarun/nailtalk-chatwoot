@@ -177,6 +177,14 @@ const channelIcon = computed(() => {
           >
             {{ callInfo.phoneNumber }}
           </p>
+          <!-- Live call-screening transcript: the caller's stated reason, streamed as they
+               speak, so the agent decides to answer or not before picking up. -->
+          <p
+            v-if="isIncoming && call.transcript"
+            class="text-sm text-n-call-widget-sub-text mt-1 mb-0 leading-snug line-clamp-3"
+          >
+            “{{ call.transcript }}”
+          </p>
         </div>
 
         <!-- Actions -->

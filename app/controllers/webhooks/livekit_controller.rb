@@ -22,6 +22,8 @@ class Webhooks::LivekitController < ActionController::API
     # agent for every inbound call before the caller chose a human.
     enqueue_inbound_call if event == 'nailtalk_press_9'
     set_recording_url if event == 'nailtalk_call_ended'
+    broadcast_call_transcript if event == 'nailtalk_transcript'
+    persist_missed_call if event == 'nailtalk_call_missed'
     head :ok
   end
 
@@ -47,6 +49,57 @@ class Webhooks::LivekitController < ActionController::API
   def sip_participant?
     k = participant[%q{kind}]
     k.to_s.upcase == %q{SIP} || k.to_i == 3
+  end
+
+  # Live call-screening transcript: the IVR screener POSTs each interim/final transcript
+  # chunk as the caller states their reason. Broadcast it over ActionCable to the ringing
+  # agent(s) so they see WHY the caller is calling — live, before they answer.
+  def broadcast_call_transcript
+    room = payload.dig('room', 'name')
+    call_id = attributes['sip.callID'].presence || room
+    return if call_id.blank?
+
+    scope = Call.where(provider: :livekit)
+    call = scope.find_by(provider_call_id: call_id)
+    call ||= scope.where("meta ->> ? = ?", 'room_name', room).order(:created_at).last if room.present?
+    return unless call
+
+    tokens = [call.conversation&.assignee&.pubsub_token].compact
+    tokens = call.account.users.pluck(:pubsub_token).compact if tokens.empty?
+    return if tokens.empty?
+
+    ActionCableBroadcastJob.perform_later(
+      tokens, 'voice_call.transcript',
+      { call_id: call.id, room_name: room,
+        text: payload['text'].to_s, is_final: !!payload['is_final'] }
+    )
+  rescue StandardError => e
+    Rails.logger.error("[livekit-webhook] transcript broadcast failed: #{e.class} #{e.message}")
+  end
+
+  # Missed internal call: the screener timed out without the receiver answering. Save the
+  # caller's transcript on the Call (recording_url is set separately via egress) and notify
+  # the receiver so they see the missed call AND what the caller said.
+  def persist_missed_call
+    room = payload.dig('room', 'name')
+    call = Call.where(provider: :livekit).where("meta ->> ? = ?", 'room_name', room).order(:created_at).last
+    return unless call
+
+    call.update!(transcript: payload['text'].presence || payload['transcript'].to_s) if call.respond_to?(:transcript)
+    call.update!(status: :no_answer) unless Call::TERMINAL_STATUSES.include?(call.status)
+
+    tokens = [call.callee_user&.pubsub_token].compact
+    return if tokens.empty?
+
+    ActionCableBroadcastJob.perform_later(
+      tokens, 'internal_call.missed',
+      { account_id: call.account_id, callId: call.id, roomName: room,
+        transcript: call.transcript.to_s,
+        caller: { name: call.caller_user&.name },
+        recording_url: call.recording_url }
+    )
+  rescue StandardError => e
+    Rails.logger.error("[livekit-webhook] missed-call persist failed: #{e.class} #{e.message}")
   end
 
   def enqueue_inbound_call

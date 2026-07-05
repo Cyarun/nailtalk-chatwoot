@@ -1,4 +1,5 @@
 import AuthAPI from '../api/auth';
+import { useAlert } from 'dashboard/composables';
 import BaseActionCableConnector from '../../shared/helpers/BaseActionCableConnector';
 import DashboardAudioNotificationHelper from './AudioAlerts/DashboardAudioNotificationHelper';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
@@ -51,11 +52,13 @@ class ActionCableConnector extends BaseActionCableConnector {
       'account.enrichment_completed': this.onEnrichmentCompleted,
       'copilot.message.created': this.onCopilotMessageCreated,
       'voice_call.incoming': this.onVoiceCallIncoming,
+      'voice_call.transcript': this.onVoiceCallTranscript,
       'voice_call.outbound_connected': this.onVoiceCallOutboundConnected,
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
       'internal_call.ringing': this.onInternalCallRinging,
       'internal_call.ended': this.onInternalCallEnded,
+      'internal_call.missed': this.onInternalCallMissed,
     };
   }
 
@@ -320,6 +323,26 @@ class ActionCableConnector extends BaseActionCableConnector {
   // eslint-disable-next-line class-methods-use-this
   onInternalCallEnded = data => {
     if (data?.callSid) useCallsStore().removeCall(data.callSid);
+  };
+
+  // Live call-screening transcript: the IVR screener streams the caller's stated reason
+  // to the ringing agent's card so they see WHY the caller is calling before answering.
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallTranscript = data => {
+    useCallsStore().setCallTranscript({
+      callSid: data.room_name || data.callSid,
+      text: data.text,
+      isFinal: data.is_final,
+    });
+  };
+
+  // Missed internal call (receiver never answered within the screening window): drop the
+  // ring and surface a missed-call alert with what the caller said + the recording link.
+  onInternalCallMissed = data => {
+    useCallsStore().removeCall(data.roomName);
+    const caller = data.caller?.name || 'a colleague';
+    const reason = data.transcript ? ` — "${data.transcript}"` : '';
+    useAlert(`Missed call from ${caller}${reason}`);
   };
 
   // `connect` is the WebRTC tunnel-ready signal (fires ~20s before pickup
