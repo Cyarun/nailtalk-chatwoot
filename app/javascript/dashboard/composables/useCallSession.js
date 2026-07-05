@@ -226,6 +226,12 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         } else {
           await whatsappSession.rejectIncomingCall(call.callId);
         }
+      } else if (isLivekitCall(call) && call?.callKind === 'internal' && call?.callId) {
+        // Internal (agent<->agent) reject/cancel: end it server-side so the controller
+        // broadcasts internal_call.ended to BOTH parties — otherwise the OTHER side's ring
+        // never stops when the callee rejects or the caller cancels an unanswered call.
+        LiveKitVoiceClient.endClientCall();
+        await VoiceAPI.endInternalCall(call.callId);
       } else if (call?.inboxId && call?.conversationId) {
         // Twilio incoming reject: agent hasn't joined the Device yet, so
         // endClientCall is a no-op. End the conference server-side instead
