@@ -12,8 +12,21 @@ class Voice::InternalCallBuilder
   class CalleeBusyError < StandardError; end
 
   def perform!
-    raise CalleeBusyError if callee_busy?
+    # Serialize the busy-check + create so two simultaneous callers can't both pass the
+    # check and double-ring the same callee (read-then-create race). Row-lock on the callee.
+    call = nil
+    ActiveRecord::Base.transaction do
+      callee_user.lock!
+      raise CalleeBusyError if callee_busy?
 
+      call = build_and_ring
+    end
+    call
+  end
+
+  private
+
+  def build_and_ring
     room_name = "nailtalk-internal-#{SecureRandom.hex(6)}"
     call = Call.create!(
       account: account,
@@ -32,10 +45,12 @@ class Voice::InternalCallBuilder
     # streams the reason live to the ringing receiver's card. Delayed so the card rings
     # before the screener joins; the job no-ops if the call is already answered/ended.
     Voice::DispatchScreenerJob.set(wait: 4.seconds).perform_later(call.id)
+    # Backstop: if nobody answers and the screener never fires a timeout (dispatch failed,
+    # env missing), force the call to no_answer so it doesn't stay "ringing" forever and
+    # permanently trip callee_busy? for this callee.
+    Voice::ExpireRingingCallJob.set(wait: 50.seconds).perform_later(call.id)
     call
   end
-
-  private
 
   # Is the callee already on a call? Session state across the system: a user has one call
   # at a time. We check for any live Call (ringing/in_progress) they're a party to, so the

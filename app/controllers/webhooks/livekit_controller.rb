@@ -88,11 +88,21 @@ class Webhooks::LivekitController < ActionController::API
     call.update!(transcript: payload['text'].presence || payload['transcript'].to_s) if call.respond_to?(:transcript)
     call.update!(status: :no_answer) unless Call::TERMINAL_STATUSES.include?(call.status)
 
-    tokens = [call.callee_user&.pubsub_token].compact
-    return if tokens.empty?
+    # The CALLER must be told the call ended too — otherwise their outbound ringing/ringback
+    # loops forever (the ring-never-stops bug on the timeout path). Reuse internal_call.ended
+    # (the same event that cleanly tears down both sides for hangup/reject).
+    if call.caller_user&.pubsub_token
+      ActionCableBroadcastJob.perform_later(
+        [call.caller_user.pubsub_token], 'internal_call.ended',
+        { account_id: call.account_id, callSid: room, callId: call.id }
+      )
+    end
+
+    # The CALLEE gets the missed-call alert with the caller's reason + recording.
+    return unless call.callee_user&.pubsub_token
 
     ActionCableBroadcastJob.perform_later(
-      tokens, 'internal_call.missed',
+      [call.callee_user.pubsub_token], 'internal_call.missed',
       { account_id: call.account_id, callId: call.id, roomName: room,
         transcript: call.transcript.to_s,
         caller: { name: call.caller_user&.name },

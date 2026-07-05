@@ -173,6 +173,12 @@ class LiveKitVoiceClient extends EventTarget {
     if (!this._waitForPeer || peerAlreadyPresent) {
       await this.room.localParticipant.setMicrophoneEnabled(true);
     }
+    // Fast-accept race: if the callee already joined before the caller's connect resolved,
+    // the ParticipantConnected listener won't fire — dispatch call:answered here too so the
+    // ringback clears and the caller's call goes active (mirrors the event path).
+    if (this._waitForPeer && peerAlreadyPresent) {
+      this.dispatchEvent(new CustomEvent('call:answered'));
+    }
     // Unlock playback within the user gesture (mobile Safari/Chrome autoplay).
     if (!this.room.canPlaybackAudio) {
       await this.room.startAudio().catch(() => {});

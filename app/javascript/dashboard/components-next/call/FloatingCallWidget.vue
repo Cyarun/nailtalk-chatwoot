@@ -226,7 +226,16 @@ const goToConversation = call => {
 };
 
 const handleEndCall = async () => {
-  const call = activeCall.value;
+  // The active call, OR — when the caller cancels an unanswered outbound internal call —
+  // their own outbound-ringing call (which is intentionally NOT active until the callee
+  // answers). Without this fallback the guard below returned early and the callee rang forever.
+  const call =
+    activeCall.value ||
+    incomingCalls.value.find(
+      c =>
+        c.callKind === 'internal' &&
+        c.callDirection === VOICE_CALL_DIRECTION.OUTBOUND
+    );
   if (!call) return;
 
   // Internal (agent<->agent) calls have no inbox/conversation — end via the internal
@@ -382,6 +391,14 @@ watch(isOutboundRinging, ringing => {
 });
 const onCallAnswered = () => {
   remoteParticipantPresent.value = true;
+  // The callee answered — NOW the caller's outbound call becomes active (it was ringing
+  // until this point, so caller-cancel/missed/refresh saw the true ringing state).
+  const outbound = incomingCalls.value.find(
+    c =>
+      c.callKind === 'internal' &&
+      c.callDirection === VOICE_CALL_DIRECTION.OUTBOUND
+  );
+  if (outbound) useCallsStore().setCallActive(outbound.callSid);
 };
 // LiveKitVoiceClient fires 'call:answered' when the callee joins the room — stop the ringback.
 LiveKitVoiceClient.addEventListener('call:answered', onCallAnswered);

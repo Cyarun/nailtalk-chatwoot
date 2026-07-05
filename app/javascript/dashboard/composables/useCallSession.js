@@ -155,8 +155,14 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         const waitForPeer =
           call?.callDirection === VOICE_CALL_DIRECTION.OUTBOUND;
         await LiveKitVoiceClient.joinClientCall({ callSid, waitForPeer });
-        callsStore.setCallActive(callSid);
-        globalDurationTimer?.start();
+        // CRITICAL (state-machine root fix): do NOT mark the caller's call active until the
+        // CALLEE answers — otherwise "outbound-ringing" collapses into "active", which broke
+        // caller-cancel/missed/refresh. The answerer activates now (accepting IS the answer);
+        // the caller activates on the 'call:answered' event (peer joined) instead.
+        if (!waitForPeer) {
+          callsStore.setCallActive(callSid);
+          globalDurationTimer?.start();
+        }
         return { callSid };
       }
 
@@ -353,9 +359,18 @@ export function useCallSession() {
         LiveKitVoiceClient.token = active.token.token;
         LiveKitVoiceClient.url = active.token.livekit_url;
         LiveKitVoiceClient.roomName = active.room_name;
-        await LiveKitVoiceClient.joinClientCall({ callSid: active.room_name });
-        callsStore.setCallActive(active.room_name);
-        globalDurationTimer?.start();
+        // If the call was still RINGING when they refreshed, rejoin in waitForPeer mode
+        // (stay silent + ringing, activate on call:answered) — don't publish the mic or go
+        // active prematurely. If it was already in_progress, rejoin as a live active call.
+        const stillRinging = active.status === 'ringing';
+        await LiveKitVoiceClient.joinClientCall({
+          callSid: active.room_name,
+          waitForPeer: stillRinging,
+        });
+        if (!stillRinging) {
+          callsStore.setCallActive(active.room_name);
+          globalDurationTimer?.start();
+        }
         // eslint-disable-next-line no-console
         console.info('[rehydrate] caller auto-rejoined', active.room_name);
       } else {
