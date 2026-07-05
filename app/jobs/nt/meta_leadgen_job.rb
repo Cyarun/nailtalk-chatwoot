@@ -73,8 +73,10 @@ class Nt::MetaLeadgenJob < ApplicationJob
     contact
   end
 
-  # Send the lead_welcome WhatsApp template to the new lead via our WhatsApp Cloud inbox —
-  # mirrors Whatsapp::OneoffCampaignService#send_whatsapp_template_message (the proven path).
+  # Send the lead_welcome WhatsApp template the NATIVE Chatwoot way: create a Conversation
+  # in our WhatsApp inbox + an outgoing template Message — Chatwoot's Whatsapp::SendOnWhatsappService
+  # then delivers the template AND logs it in the conversation (so the agent/Aria sees it and
+  # can handle the reply). Uses the same builders the FB/IG/WhatsApp channels use.
   # Gated by NT_LEAD_WA_TEMPLATE (template name) so it can be flipped on/off safely.
   def send_whatsapp_welcome(contact, fields)
     template_name = GlobalConfigService.load('NT_LEAD_WA_TEMPLATE', nil)
@@ -83,27 +85,37 @@ class Nt::MetaLeadgenJob < ApplicationJob
     to = normalize_phone(fields[:phone_number])
     return if to.blank?
 
-    channel = whatsapp_channel
-    return if channel.blank?
+    inbox = whatsapp_inbox
+    return if inbox.blank?
 
-    tmpl = (channel.message_templates || []).find { |t| t['name'] == template_name }
-    if tmpl.blank?
-      Rails.logger.warn("[meta-leadgen] WA template '#{template_name}' not found on the inbox; skipping welcome")
-      return
-    end
+    # Contact-inbox on the WhatsApp inbox (source_id = the phone number for WhatsApp Cloud).
+    contact_inbox = ContactInboxWithContactBuilder.new(
+      inbox: inbox,
+      source_id: to,
+      contact_attributes: { name: contact.name, phone_number: to }
+    ).perform
 
-    lang_code = tmpl.dig('language') || 'en'
-    channel.send_template(to, { name: template_name, namespace: nil, lang_code: lang_code, parameters: [] }, nil)
-    Rails.logger.info("[meta-leadgen] WhatsApp welcome (#{template_name}) sent to #{to}")
+    conversation = ::ConversationBuilder.new(
+      params: ActionController::Parameters.new({}),
+      contact_inbox: contact_inbox
+    ).perform
+
+    # Outgoing template message — template_params triggers the native template send path.
+    msg_params = ActionController::Parameters.new(
+      message_type: 'outgoing',
+      content: "Welcome to Nail Talk! (#{template_name})",
+      template_params: { name: template_name, category: 'MARKETING', language: 'en_US' }
+    )
+    ::Messages::MessageBuilder.new(nil, conversation, msg_params).perform
+    Rails.logger.info("[meta-leadgen] WhatsApp welcome (#{template_name}) queued in conversation #{conversation.id} to #{to}")
   rescue StandardError => e
     Rails.logger.error("[meta-leadgen] WhatsApp welcome send failed: #{e.message}")
   end
 
-  # Our WhatsApp Cloud inbox channel (NT_LEAD_WA_INBOX_ID, else the first WhatsApp inbox).
-  def whatsapp_channel
+  # Our WhatsApp Cloud inbox (NT_LEAD_WA_INBOX_ID, else the first WhatsApp inbox).
+  def whatsapp_inbox
     inbox_id = GlobalConfigService.load('NT_LEAD_WA_INBOX_ID', nil)
-    inbox = inbox_id.present? ? Inbox.find_by(id: inbox_id) : Inbox.find_by(channel_type: 'Channel::Whatsapp')
-    inbox&.channel
+    inbox_id.present? ? Inbox.find_by(id: inbox_id) : Inbox.find_by(channel_type: 'Channel::Whatsapp')
   end
 
   # Native labels for segmentation / warm-welcome automations (meta-lead + branch-<x>).
