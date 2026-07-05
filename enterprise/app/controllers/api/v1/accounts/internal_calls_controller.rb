@@ -66,8 +66,14 @@ class Api::V1::Accounts::InternalCallsController < Api::V1::Accounts::BaseContro
 
   private
 
+  # Per-user session scoping: a user may only act on a call they are a PARTY to (caller or
+  # callee). This prevents fetching a token for — or ending — another user's call. Features
+  # are enabled only through the acting user's own session (Current.user).
   def internal_call!
-    Current.account.calls.where(call_kind: 'internal').find(params[:id])
+    Current.account.calls
+           .where(call_kind: 'internal')
+           .where('caller_user_id = :id OR callee_user_id = :id', id: Current.user.id)
+           .find(params[:id])
   end
 
   def mint_token(room_name)
