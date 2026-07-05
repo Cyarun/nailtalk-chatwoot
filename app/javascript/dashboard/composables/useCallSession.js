@@ -150,7 +150,11 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
       // the internal room and join it. Both parties land in the same LiveKit room.
       if (isLivekitCall(call) && call?.callKind === 'internal') {
         await LiveKitVoiceClient.initializeInternalDevice(call.callId);
-        await LiveKitVoiceClient.joinClientCall({ callSid });
+        // The CALLER (outbound) joins silent and only goes live when the callee answers;
+        // the answerer (inbound accepting) publishes immediately.
+        const waitForPeer =
+          call?.callDirection === VOICE_CALL_DIRECTION.OUTBOUND;
+        await LiveKitVoiceClient.joinClientCall({ callSid, waitForPeer });
         callsStore.setCallActive(callSid);
         globalDurationTimer?.start();
         return { callSid };

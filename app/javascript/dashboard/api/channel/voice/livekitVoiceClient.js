@@ -57,10 +57,13 @@ class LiveKitVoiceClient extends EventTarget {
     stream.getTracks().forEach(t => t.stop());
   }
 
-  async joinClientCall() {
+  async joinClientCall(options = {}) {
     if (!this.token || !this.url) {
       throw new Error("LiveKit token not initialized");
     }
+    // waitForPeer = the CALLER: join silent (mic off) and only go live when the callee
+    // answers (joins the room). Prevents "audio auto-on before the other side accepts".
+    this._waitForPeer = !!options.waitForPeer;
     // Guard against a concurrent second join for the same room (a double-invoke would
     // disconnect the first attempt as "client initiated" and break the call).
     if (this._joining) return this._joining;
@@ -131,6 +134,16 @@ class LiveKitVoiceClient extends EventTarget {
         this.room.startAudio().catch(() => {});
       }
     });
+    // Ring semantics: the CALLER joins the room but stays SILENT (mic off) until the
+    // callee actually joins — so the caller isn't "live"/publishing before the call is
+    // answered. When the callee (a second participant) connects, enable the mic = connected.
+    if (this._waitForPeer) {
+      this.room.on(RoomEvent.ParticipantConnected, () => {
+        this.room?.localParticipant?.setMicrophoneEnabled(true).catch(() => {});
+        this.dispatchEvent(new CustomEvent('call:answered'));
+      });
+    }
+
     const roomRef = this.room;
     this.room.on(RoomEvent.Disconnected, (reason) => {
       // eslint-disable-next-line no-console
@@ -152,7 +165,14 @@ class LiveKitVoiceClient extends EventTarget {
 
     await this.room.connect(this.url, this.token);
     liveKitRoomRef.value = this.room; // expose to Vue composables
-    await this.room.localParticipant.setMicrophoneEnabled(true);
+    // Caller waiting for the callee stays muted until ParticipantConnected fires; everyone
+    // else (the answerer, PSTN) publishes mic immediately. If a peer is ALREADY in the room
+    // when the caller joins (callee answered first), enable the mic right away.
+    const peerAlreadyPresent =
+      (this.room.remoteParticipants?.size || 0) > 0;
+    if (!this._waitForPeer || peerAlreadyPresent) {
+      await this.room.localParticipant.setMicrophoneEnabled(true);
+    }
     // Unlock playback within the user gesture (mobile Safari/Chrome autoplay).
     if (!this.room.canPlaybackAudio) {
       await this.room.startAudio().catch(() => {});
@@ -196,9 +216,21 @@ class LiveKitVoiceClient extends EventTarget {
     return supportsAudioOutputSelection();
   }
 
+  // Request camera permission up front (in the click gesture), like Google Meet, so the
+  // prompt is explicit and a denial surfaces clearly instead of failing silently mid-enable.
+  // eslint-disable-next-line class-methods-use-this
+  async ensureCameraPermission() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach(t => t.stop()); // release; LiveKit opens its own track
+  }
+
   // --- Video (internal calls only) ---
   async setCameraEnabled(enabled) {
     if (!this.room?.localParticipant) return;
+    if (enabled) {
+      // Ask for camera permission explicitly first; if the user denies, surface it.
+      await this.ensureCameraPermission();
+    }
     await this.room.localParticipant.setCameraEnabled(enabled);
     if (enabled) {
       // Emit the local camera track so the UI can show a self-view tile.

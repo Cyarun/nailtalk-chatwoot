@@ -86,8 +86,16 @@ const toggleSpeaker = async () => {
 
 const toggleCamera = async () => {
   if (!isLivekitActive.value) return;
-  isCameraOn.value = !isCameraOn.value;
-  await LiveKitVoiceClient.setCameraEnabled(isCameraOn.value);
+  const next = !isCameraOn.value;
+  try {
+    // setCameraEnabled requests camera permission first (Google-Meet style); only flip
+    // the UI state once it actually succeeds, so a denied prompt doesn't desync the button.
+    await LiveKitVoiceClient.setCameraEnabled(next);
+    isCameraOn.value = next;
+  } catch (e) {
+    isCameraOn.value = false;
+    useAlert('Camera permission is needed to turn on video.');
+  }
 };
 
 const primaryIncomingCall = computed(() =>
