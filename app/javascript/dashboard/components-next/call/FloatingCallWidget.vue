@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useCallSession } from 'dashboard/composables/useCallSession';
@@ -9,6 +9,8 @@ import LiveKitVoiceClient, {
   liveKitRoomRef,
 } from 'dashboard/api/channel/voice/livekitVoiceClient';
 import { useMediaDevices } from 'dashboard/composables/livekit/useMediaDevices';
+import { useTracks } from 'dashboard/composables/livekit/useTracks';
+import { Track } from 'livekit-client';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
 import { useCallsStore } from 'dashboard/stores/calls';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
@@ -58,18 +60,15 @@ const showSpeaker = computed(() => isLivekitActive.value);
 const showVideo = computed(
   () => isLivekitActive.value && activeCall.value?.callKind === 'internal'
 );
-// True once the OTHER side publishes video, so we render the tiles + show their video
-// even if we haven't turned our own camera on.
-const hasRemoteVideo = ref(false);
-const onAnyVideoTrack = event => {
-  if (event.detail?.remote) hasRemoteVideo.value = true;
-};
-onMounted(() =>
-  LiveKitVoiceClient.addEventListener('video:track', onAnyVideoTrack)
+// Render the tiles when the OTHER side publishes camera video (even if our own camera is
+// off). Driven by the components-core-backed useTracks composable instead of the retired
+// 'video:track' CustomEvent.
+const { remoteTracks: remoteCameraTracks } = useTracks(
+  liveKitRoomRef,
+  [Track.Source.Camera],
+  { onlySubscribed: false }
 );
-onBeforeUnmount(() =>
-  LiveKitVoiceClient.removeEventListener('video:track', onAnyVideoTrack)
-);
+const hasRemoteVideo = computed(() => remoteCameraTracks.value.length > 0);
 
 // Speaker output via the components-core-backed composable (replaces the hand-rolled
 // getDevices/switchDevice on LiveKitVoiceClient — first Option B migration).

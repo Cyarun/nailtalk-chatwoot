@@ -1,48 +1,51 @@
 <script setup>
-// Video tiles for an internal (agent<->agent) LiveKit call. Listens for the
-// LiveKitVoiceClient's 'video:track' events (emitted on TrackSubscribed(video) and when
-// the local camera is enabled) and attaches each LiveKit VideoTrack to a <video> element.
-// Local (self-view) is shown small; remote fills the tile. Only mounted when video is on.
-import { ref, onMounted, onBeforeUnmount } from 'vue';
-import LiveKitVoiceClient from 'dashboard/api/channel/voice/livekitVoiceClient';
+// Video tiles for an internal (agent<->agent) LiveKit call, driven by the components-core
+// composable layer (Option B) — replaces the hand-rolled 'video:track' CustomEvent bus +
+// LiveKitVoiceClient.getRemoteVideoTracks/getLocalVideoTrack. useTracks emits the current
+// camera TrackReferences (remote + local) as an RxJS-backed reactive ref; we attach each
+// to a <video> element and keep the DOM in sync as tracks come and go.
+import { watch, onBeforeUnmount, ref } from 'vue';
+import { Track } from 'livekit-client';
+import { liveKitRoomRef } from 'dashboard/api/channel/voice/livekitVoiceClient';
+import { useTracks } from 'dashboard/composables/livekit/useTracks';
 
 const remoteEl = ref(null);
 const localEl = ref(null);
-let attached = [];
 
-const attachTrack = (track, remote) => {
-  if (!track) return;
-  const target = remote ? remoteEl.value : localEl.value;
+const { remoteTracks, localTracks } = useTracks(liveKitRoomRef, [Track.Source.Camera], {
+  onlySubscribed: false,
+});
+
+// Attach the first track of a list into a tile element (1:1 call → one remote, one local).
+const syncTile = (target, trackRefs, { muted }) => {
   if (!target) return;
-  target.innerHTML = ''; // replace any previous track in this tile
+  const track = trackRefs[0]?.publication?.videoTrack;
+  target.innerHTML = ''; // replace whatever was there
+  if (!track) return;
   const el = track.attach();
   el.autoplay = true;
   el.playsInline = true;
-  if (!remote) el.muted = true; // never echo our own audio via the self-view
+  if (muted) el.muted = true; // never echo our own audio via the self-view
   el.classList.add('w-full', 'h-full', 'object-cover', 'rounded-lg');
   target.appendChild(el);
-  attached.push({ track, el });
 };
 
-const onVideoTrack = event => {
-  const { track, remote } = event.detail || {};
-  attachTrack(track, remote);
-};
-
-onMounted(() => {
-  // Attach any video tracks that ALREADY exist (the remote/local track may have been
-  // published before this component mounted, so its 'video:track' event was missed).
-  LiveKitVoiceClient.getRemoteVideoTracks().forEach(t => attachTrack(t, true));
-  const local = LiveKitVoiceClient.getLocalVideoTrack();
-  if (local) attachTrack(local, false);
-  // ...then listen for future tracks (camera toggled on, other side joins video).
-  LiveKitVoiceClient.addEventListener('video:track', onVideoTrack);
-});
+watch(
+  remoteTracks,
+  refs => syncTile(remoteEl.value, refs, { muted: false }),
+  { immediate: true }
+);
+watch(
+  localTracks,
+  refs => syncTile(localEl.value, refs, { muted: true }),
+  { immediate: true }
+);
 
 onBeforeUnmount(() => {
-  LiveKitVoiceClient.removeEventListener('video:track', onVideoTrack);
-  attached.forEach(({ track }) => track.detach().forEach(el => el.remove()));
-  attached = [];
+  // Detach any attached media elements so we don't leak them.
+  [remoteEl.value, localEl.value].forEach(el => {
+    if (el) el.innerHTML = '';
+  });
 });
 </script>
 
