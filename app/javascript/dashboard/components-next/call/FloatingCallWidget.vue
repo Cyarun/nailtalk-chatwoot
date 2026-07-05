@@ -357,6 +357,42 @@ watch(
   { immediate: true }
 );
 
+// Caller-side RINGBACK: LiveKit does not play a ringback tone, so the outbound caller
+// hears silence while waiting for the callee to answer. Play the ringtone as a ringback
+// from the moment the caller's outbound call is active until the callee joins (the
+// 'call:answered' event fired by LiveKitVoiceClient when the peer connects).
+const ringback = new Audio(RINGTONE_URL);
+ringback.loop = true;
+ringback.volume = 0.5;
+// True once the callee has joined (the 'call:answered' event), so the ringback stops.
+const remoteParticipantPresent = ref(false);
+const isOutboundRinging = computed(
+  () =>
+    isLivekitActive.value &&
+    activeCall.value?.callDirection === VOICE_CALL_DIRECTION.OUTBOUND &&
+    !remoteParticipantPresent.value
+);
+watch(isOutboundRinging, ringing => {
+  if (ringing) {
+    ringback.play().catch(() => {});
+  } else {
+    ringback.pause();
+    ringback.currentTime = 0;
+  }
+});
+const onCallAnswered = () => {
+  remoteParticipantPresent.value = true;
+};
+// LiveKitVoiceClient fires 'call:answered' when the callee joins the room — stop the ringback.
+LiveKitVoiceClient.addEventListener('call:answered', onCallAnswered);
+onBeforeUnmount(() =>
+  LiveKitVoiceClient.removeEventListener('call:answered', onCallAnswered)
+);
+// Reset the answered flag whenever the active call clears, so the next outbound call rings.
+watch(hasActiveCall, active => {
+  if (!active) remoteParticipantPresent.value = false;
+});
+
 let vibrateTimer = null;
 const startVibrate = () => {
   if (!navigator.vibrate || vibrateTimer) return;
