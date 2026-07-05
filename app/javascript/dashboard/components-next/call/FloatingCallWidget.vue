@@ -11,6 +11,7 @@ import LiveKitVoiceClient, {
 import { useMediaDevices } from 'dashboard/composables/livekit/useMediaDevices';
 import { useTracks } from 'dashboard/composables/livekit/useTracks';
 import { Track } from 'livekit-client';
+import { useAlert } from 'dashboard/composables';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
 import { useCallsStore } from 'dashboard/stores/calls';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
