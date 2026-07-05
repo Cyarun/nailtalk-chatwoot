@@ -322,23 +322,28 @@ export function useCallSession() {
   const rehydrateInternalCall = async () => {
     try {
       const { active } = await VoiceAPI.getActiveInternalCall();
+      // /active only returns a call that's still LIVE (ringing/in_progress). A cleanly
+      // ended call (completed) isn't returned — so its presence means "still ongoing, my
+      // connection dropped" (refresh/network/phone-off), not "I hung up".
       if (!active?.room_name) return;
+
+      const isCaller = active.direction === 'outbound';
       callsStore.addCall({
         callSid: active.room_name,
         callId: active.id,
         conversationId: null,
         inboxId: null,
-        callDirection:
-          active.direction === 'outbound'
-            ? VOICE_CALL_DIRECTION.OUTBOUND
-            : VOICE_CALL_DIRECTION.INBOUND,
+        callDirection: isCaller
+          ? VOICE_CALL_DIRECTION.OUTBOUND
+          : VOICE_CALL_DIRECTION.INBOUND,
         provider: VOICE_CALL_PROVIDERS.LIVEKIT,
         callKind: 'internal',
         caller: { name: active.peer },
       });
-      // Rejoin the live room after a page refresh (a mid-call reload must reconnect, so
-      // rejoin for both in_progress AND ringing — the LiveKit room still exists server-side).
-      if (active.status === 'in_progress' || active.status === 'ringing') {
+
+      if (isCaller) {
+        // The CALLER dropped off their OWN initiated call — auto-rejoin, no permission
+        // needed (they started it). Reconnect straight into the still-alive room.
         LiveKitVoiceClient.token = active.token.token;
         LiveKitVoiceClient.url = active.token.livekit_url;
         LiveKitVoiceClient.roomName = active.room_name;
@@ -346,7 +351,15 @@ export function useCallSession() {
         callsStore.setCallActive(active.room_name);
         globalDurationTimer?.start();
         // eslint-disable-next-line no-console
-        console.info('[rehydrate] rejoined internal call', active.room_name);
+        console.info('[rehydrate] caller auto-rejoined', active.room_name);
+      } else {
+        // The RECEIVER dropped off — do NOT silently rejoin. Surface it as an incoming
+        // call (the ring/accept card) so they can CHOOSE to rejoin the missed ongoing
+        // call. addCall as OUTBOUND above would auto-join; it's INBOUND + non-active, so
+        // the FloatingCallWidget shows it as "incoming" for the agent to accept.
+        useAlert(`You have an ongoing call with ${active.peer}. Rejoin?`);
+        // eslint-disable-next-line no-console
+        console.info('[rehydrate] receiver prompted to rejoin', active.room_name);
       }
     } catch (e) {
       // eslint-disable-next-line no-console
