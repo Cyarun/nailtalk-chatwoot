@@ -64,8 +64,46 @@ class Nt::MetaLeadgenJob < ApplicationJob
     apply_lead_labels(contact, attrs)
 
     write_consent_note(contact, lead, consent)
-    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact.id} (contact-first, no conversation)")
+
+    # TIME IS MONEY ON INTENT: message the lead on WhatsApp the moment the form lands, so
+    # they hear from us while still warm. Native template send via our WhatsApp Cloud inbox.
+    send_whatsapp_welcome(contact, fields)
+
+    Rails.logger.info("[meta-leadgen] ingested lead #{leadgen_id} -> contact #{contact.id} (contact-first + WhatsApp welcome)")
     contact
+  end
+
+  # Send the lead_welcome WhatsApp template to the new lead via our WhatsApp Cloud inbox —
+  # mirrors Whatsapp::OneoffCampaignService#send_whatsapp_template_message (the proven path).
+  # Gated by NT_LEAD_WA_TEMPLATE (template name) so it can be flipped on/off safely.
+  def send_whatsapp_welcome(contact, fields)
+    template_name = GlobalConfigService.load('NT_LEAD_WA_TEMPLATE', nil)
+    return if template_name.blank?
+
+    to = normalize_phone(fields[:phone_number])
+    return if to.blank?
+
+    channel = whatsapp_channel
+    return if channel.blank?
+
+    tmpl = (channel.message_templates || []).find { |t| t['name'] == template_name }
+    if tmpl.blank?
+      Rails.logger.warn("[meta-leadgen] WA template '#{template_name}' not found on the inbox; skipping welcome")
+      return
+    end
+
+    lang_code = tmpl.dig('language') || 'en'
+    channel.send_template(to, { name: template_name, namespace: nil, lang_code: lang_code, parameters: [] }, nil)
+    Rails.logger.info("[meta-leadgen] WhatsApp welcome (#{template_name}) sent to #{to}")
+  rescue StandardError => e
+    Rails.logger.error("[meta-leadgen] WhatsApp welcome send failed: #{e.message}")
+  end
+
+  # Our WhatsApp Cloud inbox channel (NT_LEAD_WA_INBOX_ID, else the first WhatsApp inbox).
+  def whatsapp_channel
+    inbox_id = GlobalConfigService.load('NT_LEAD_WA_INBOX_ID', nil)
+    inbox = inbox_id.present? ? Inbox.find_by(id: inbox_id) : Inbox.find_by(channel_type: 'Channel::Whatsapp')
+    inbox&.channel
   end
 
   # Native labels for segmentation / warm-welcome automations (meta-lead + branch-<x>).
