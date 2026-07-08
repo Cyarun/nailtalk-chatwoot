@@ -36,6 +36,9 @@ class Nt::MetaLeadgenJob < ApplicationJob
     consent = extract_consent(lead['custom_disclaimer_responses'])
     attrs = build_custom_attributes(lead, fields, consent, form_id: form_id, ad_id: ad_id,
                                                                 created_time: created_time)
+    # Ensure lead_leadgen_id is always set (the webhook always gives us leadgen_id even if the
+    # fetched lead payload omits 'id') — idempotency/dedupe depends on it.
+    attrs['lead_leadgen_id'] = attrs['lead_leadgen_id'].presence || leadgen_id.to_s
 
     contact_inbox = ContactInboxWithContactBuilder.new(
       inbox: leadgen_inbox,
