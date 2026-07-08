@@ -96,11 +96,26 @@ class Captain::Assistant::AgentRunnerService
 
   def process_agent_result(result)
     Rails.logger.info "[Captain V2] Agent result: #{result.inspect}"
-    output = result.output
+    output = normalize_agent_output(result.output)
     response = output.is_a?(Hash) ? output.with_indifferent_access : { 'response' => output.to_s, 'reasoning' => 'Processed by agent' }
     response['agent_name'] = result.context&.dig(:current_agent)
     response['handoff_tool_called'] = result.context&.dig(:captain_v2_handoff_tool_called) || false
     response
+  end
+
+  # The model sometimes returns the structured { "response", "reasoning" } as a raw JSON
+  # STRING instead of a parsed Hash. Left as-is, the whole JSON blob (or a leading "{") gets
+  # sent to the customer. Parse it back into a Hash so only the response text is delivered.
+  def normalize_agent_output(output)
+    return output unless output.is_a?(String)
+
+    stripped = output.strip
+    return output unless stripped.start_with?('{')
+
+    parsed = JSON.parse(stripped)
+    parsed.is_a?(Hash) && parsed.key?('response') ? parsed : output
+  rescue JSON::ParserError
+    output
   end
 
   def error_response(error_message)
