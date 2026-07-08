@@ -88,10 +88,13 @@ class Nt::MetaLeadgenJob < ApplicationJob
     inbox = whatsapp_inbox
     return if inbox.blank?
 
-    # Contact-inbox on the WhatsApp inbox (source_id = the phone number for WhatsApp Cloud).
+    # WhatsApp Cloud requires the ContactInbox source_id to be DIGITS ONLY (regex \A\d{1,15}\z) —
+    # normalize_phone returns a +E.164 string, so strip the leading + here.
+    source_id = to.delete('^0-9')
+
     contact_inbox = ContactInboxWithContactBuilder.new(
       inbox: inbox,
-      source_id: to,
+      source_id: source_id,
       contact_attributes: { name: contact.name, phone_number: to }
     ).perform
 
@@ -100,14 +103,24 @@ class Nt::MetaLeadgenJob < ApplicationJob
       contact_inbox: contact_inbox
     ).perform
 
-    # Outgoing template message — template_params triggers the native template send path.
+    # Read the template's REAL language + category from the WABA (hardcoding en_US/MARKETING
+    # was wrong — this template is 'en'/UTILITY, and a mismatch triggers Meta #132001). Also
+    # fill the template's body variables ({{1}} name, {{2}} branch/salon) or Meta returns #132000.
+    tmpl = (inbox.channel.message_templates || []).find { |t| t['name'] == template_name }
+    language = tmpl&.dig('language') || 'en'
+    category = tmpl&.dig('category') || 'UTILITY'
+    branch = fields[:branch].presence || 'Salon'
+
     msg_params = ActionController::Parameters.new(
       message_type: 'outgoing',
-      content: "Welcome to Nail Talk! (#{template_name})",
-      template_params: { name: template_name, category: 'MARKETING', language: 'en_US' }
+      content: "Hi #{contact.name}, thank you for your interest in Nail Talk #{branch}!",
+      template_params: {
+        name: template_name, category: category, language: language,
+        processed_params: { '1' => contact.name.to_s, '2' => branch.to_s }
+      }
     )
     ::Messages::MessageBuilder.new(nil, conversation, msg_params).perform
-    Rails.logger.info("[meta-leadgen] WhatsApp welcome (#{template_name}) queued in conversation #{conversation.id} to #{to}")
+    Rails.logger.info("[meta-leadgen] WhatsApp welcome (#{template_name}/#{language}) queued in conversation #{conversation.id} to #{to}")
   rescue StandardError => e
     Rails.logger.error("[meta-leadgen] WhatsApp welcome send failed: #{e.message}")
   end
