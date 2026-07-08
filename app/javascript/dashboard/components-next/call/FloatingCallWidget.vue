@@ -314,30 +314,44 @@ ringtone.loop = true;
 ringtone.volume = 1;
 
 // Mobile/desktop browsers block audio.play() without a prior user gesture, so an
-// incoming-call ringtone would be silently rejected (esp. on phones). Prime the audio
-// element on the FIRST user interaction anywhere (play muted then pause) — after that
-// the browser allows the ringtone to autoplay when a call arrives.
+// incoming-call ringtone would be silently rejected (esp. on phones). Prime BOTH audio
+// elements (the inbound ringtone AND the caller-side ringback) on the first user gesture —
+// after a successful muted play/pause the browser lets them autoplay when a call arrives.
+// `ringback` is declared later, so prime it lazily inside the handler when present.
 let ringtoneUnlocked = false;
-const unlockRingtone = () => {
-  if (ringtoneUnlocked) return;
-  ringtoneUnlocked = true;
-  const prev = ringtone.muted;
-  ringtone.muted = true;
-  ringtone
+const primeAudio = el => {
+  if (!el) return Promise.resolve();
+  const prev = el.muted;
+  el.muted = true;
+  return el
     .play()
     .then(() => {
-      ringtone.pause();
-      ringtone.currentTime = 0;
-      ringtone.muted = prev;
+      el.pause();
+      el.currentTime = 0;
+      el.muted = prev;
     })
     .catch(() => {
-      ringtone.muted = prev;
+      el.muted = prev;
     });
-  window.removeEventListener('pointerdown', unlockRingtone);
-  window.removeEventListener('keydown', unlockRingtone);
 };
-window.addEventListener('pointerdown', unlockRingtone);
-window.addEventListener('keydown', unlockRingtone);
+const unlockRingtone = () => {
+  // Only stop listening once a prime actually succeeds — a first gesture that still got
+  // blocked shouldn't permanently disarm the unlock (mobile Safari sometimes needs a real tap).
+  primeAudio(ringtone).then(() => {
+    primeAudio(typeof ringback !== 'undefined' ? ringback : null);
+    if (!ringtone.paused || ringtone.currentTime === 0) {
+      ringtoneUnlocked = true;
+      window.removeEventListener('pointerdown', unlockRingtone);
+      window.removeEventListener('touchstart', unlockRingtone);
+      window.removeEventListener('keydown', unlockRingtone);
+    }
+  });
+};
+if (!ringtoneUnlocked) {
+  window.addEventListener('pointerdown', unlockRingtone);
+  window.addEventListener('touchstart', unlockRingtone, { passive: true });
+  window.addEventListener('keydown', unlockRingtone);
+}
 
 const stopRingtone = () => {
   ringtone.pause();
@@ -354,7 +368,14 @@ watch(
   () => ringingInbound.value && !hasActiveCall.value,
   shouldRing => {
     if (shouldRing) {
-      ringtone.play().catch(() => {});
+      // [call-ring] observability: log WHY the ring did/didn't sound (rule 9) — a silent
+      // .catch() was hiding mobile autoplay blocks. Now the console shows the real reason.
+      // eslint-disable-next-line no-console
+      console.info('[call-ring] inbound ringing → playing ringtone (unlocked:', ringtoneUnlocked, ')');
+      ringtone.play().catch(err => {
+        // eslint-disable-next-line no-console
+        console.warn('[call-ring] ringtone.play() BLOCKED (mobile autoplay?) — relying on vibrate:', err?.name || err);
+      });
       // Mobile browsers often block the ringtone audio (autoplay policy). Vibrate as a
       // fallback so the phone still signals an incoming call, repeating while ringing.
       startVibrate();
