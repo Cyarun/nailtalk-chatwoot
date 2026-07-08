@@ -198,10 +198,28 @@ class Nt::MetaLeadgenJob < ApplicationJob
       'lead_ad_name' => lead['ad_name'],
       'lead_created_at' => meta_time(lead['created_time'] || created_time),
       'lead_branch' => branch,
+      'service_interest' => infer_service_interest(fields, lead),
       'consent_given' => consent[:given],
       'consent_checkbox_key' => consent[:checkbox_key],
       'consent_captured_at' => Time.current.iso8601
     }.compact
+  end
+
+  # The service the lead is interested in — from an explicit form field if present, else
+  # inferred from the ad/campaign name (86% of Nail Talk leads are eyelash ads). Lets the
+  # agent open with the right service instead of a generic greeting.
+  def infer_service_interest(fields, lead)
+    explicit = fields[:service] || fields[:service_interest] || fields[:interested_in]
+    return explicit.to_s if explicit.present?
+
+    text = "#{lead['ad_name']} #{lead['campaign_name']}".downcase
+    return 'eyelash_extensions' if text.match?(/lash|eyelash/)
+    return 'nail_extensions'    if text.match?(/nail extension|gel|acrylic/)
+    return 'manicure'           if text.include?('manicure')
+    return 'pedicure'           if text.include?('pedicure')
+    return 'makeup'             if text.match?(/makeup|bridal|bride/)
+
+    nil
   end
 
   # Map a branch/city answer to our canonical branch key (Jubilee/Banjara/Film Nagar/Kokapet).
