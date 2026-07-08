@@ -222,11 +222,22 @@ class Nt::MetaLeadgenJob < ApplicationJob
     Account.first.inboxes.find_by(name: 'Leads') || Account.first.inboxes.first
   end
 
+  # Normalize + VALIDATE the lead's phone. Returns a +E.164 Indian mobile, or nil for a
+  # junk/fake number so we don't waste a paid WhatsApp template send on an unreachable lead.
   def normalize_phone(phone)
     return nil if phone.blank?
 
-    digits = phone.to_s.gsub(/[^\d+]/, '')
-    digits.start_with?('+') ? digits : "+#{digits}"
+    digits = phone.to_s.gsub(/\D/, '')
+    # Strip a leading country code / trunk 0 to get the bare 10-digit subscriber number.
+    digits = digits[2..] if digits.length == 12 && digits.start_with?('91')
+    digits = digits[1..] if digits.length == 11 && digits.start_with?('0')
+
+    # Valid Indian mobile = 10 digits starting 6-9. Anything else is a fake/landline/foreign.
+    unless digits.length == 10 && digits.match?(/\A[6-9]\d{9}\z/)
+      Rails.logger.info("[meta-leadgen] skipping unreachable/invalid phone #{phone.inspect} (not a valid Indian mobile)")
+      return nil
+    end
+    "+91#{digits}"
   end
 
   def meta_time(value)
