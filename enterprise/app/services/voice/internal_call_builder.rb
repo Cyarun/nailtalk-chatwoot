@@ -17,6 +17,10 @@ class Voice::InternalCallBuilder
     call = nil
     ActiveRecord::Base.transaction do
       callee_user.lock!
+      # A user has ONE active call at a time. If the caller has a leftover ringing/in_progress
+      # call (they cut off / dropped without a clean hangup), terminate it before starting a new
+      # one — otherwise the stale call haunts /active and shows a phantom "rejoin?" prompt.
+      terminate_stale_calls_for(caller_user)
       raise CalleeBusyError if callee_busy?
 
       call = build_and_ring
@@ -25,6 +29,15 @@ class Voice::InternalCallBuilder
   end
 
   private
+
+  # End any live call the given user is still a party to (caller or callee) — used to clear a
+  # stale/abandoned call so it can't ghost the next one.
+  def terminate_stale_calls_for(user)
+    account.calls
+           .where(call_kind: 'internal', status: %i[ringing in_progress])
+           .where('accepted_by_agent_id = :id OR callee_user_id = :id', id: user.id)
+           .find_each { |c| c.update!(status: :no_answer) }
+  end
 
   def build_and_ring
     room_name = "nailtalk-internal-#{SecureRandom.hex(6)}"
