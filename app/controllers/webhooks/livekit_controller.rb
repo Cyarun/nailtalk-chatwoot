@@ -68,9 +68,13 @@ class Webhooks::LivekitController < ActionController::API
     tokens = call.account.users.pluck(:pubsub_token).compact if tokens.empty?
     return if tokens.empty?
 
+    # account_id is required: the Vue FloatingCallWidget's isAValidEvent() guard drops any
+    # transcript whose account_id != current account. Sibling broadcasts (call started /
+    # missed) already include it — this one was the odd one out, so the live transcript
+    # never reached the receiver card (nt-24gd F12 gap 3, nt-7ni6).
     ActionCableBroadcastJob.perform_later(
       tokens, 'voice_call.transcript',
-      { call_id: call.id, room_name: room,
+      { account_id: call.account_id, call_id: call.id, room_name: room,
         text: payload['text'].to_s, is_final: !!payload['is_final'] }
     )
   rescue StandardError => e
