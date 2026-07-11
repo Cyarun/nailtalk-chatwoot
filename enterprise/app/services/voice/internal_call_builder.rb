@@ -54,9 +54,9 @@ class Voice::InternalCallBuilder
               "caller_name" => caller_user.name, "callee_name" => callee_user.name }
     )
     ring_callee(call, room_name)
-    # Ring first (~2 rings), THEN attach the screener so it transcribes the caller and
-    # streams the reason live to the ringing receiver's card. Delayed so the card rings
-    # before the screener joins; the job no-ops if the call is already answered/ended.
+    # Brief ring delay (~4s) so the receiver's card renders and rings first, THEN attach
+    # the screener so it transcribes the caller and streams the reason live to that card.
+    # The job no-ops if the call is already answered/ended by the time it runs.
     Voice::DispatchScreenerJob.set(wait: 4.seconds).perform_later(call.id)
     # Backstop: if nobody answers and the screener never fires a timeout (dispatch failed,
     # env missing), force the call to no_answer so it doesn't stay "ringing" forever and
