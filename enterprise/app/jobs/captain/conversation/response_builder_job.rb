@@ -14,7 +14,9 @@ class Captain::Conversation::ResponseBuilderJob < ApplicationJob
 
     Current.executed_by = @assistant
 
-    if captain_v2_enabled?
+    if flue_backend?
+      generate_response_with_flue
+    elsif captain_v2_enabled?
       generate_response_with_v2
     else
       generate_and_process_response
@@ -43,6 +45,21 @@ class Captain::Conversation::ResponseBuilderJob < ApplicationJob
 
   def generate_response_with_v2
     @response = Captain::Assistant::AgentRunnerService.new(assistant: @assistant, conversation: @conversation).generate_response(
+      message_history: collect_previous_messages
+    )
+    process_response
+  end
+
+  # nt-x6vk: route this assistant's reasoning turn to the external Flue T1 service
+  # (prototype, feature-flagged per-assistant via config['reasoning_backend']=='flue').
+  # FlueBridge returns a Hash in the SAME shape process_response consumes, so send /
+  # handoff / usage all work unchanged.
+  def flue_backend?
+    @assistant.config['reasoning_backend'] == 'flue'
+  end
+
+  def generate_response_with_flue
+    @response = Captain::FlueBridgeService.new(assistant: @assistant, conversation: @conversation).generate_response(
       message_history: collect_previous_messages
     )
     process_response
