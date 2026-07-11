@@ -31,20 +31,31 @@ class Captain::FlueBridgeService
   # message_history = [{ content:, role: ('user'|'assistant'), agent_name? }, ...]
   def generate_response(message_history: [])
     cid = SecureRandom.uuid
-    last_user = message_history.reverse.find { |m| m[:role] == 'user' || m['role'] == 'user' }
-    text = (last_user && (last_user[:content] || last_user['content'])).to_s.strip
+    norm = message_history.map do |m|
+      { role: (m[:role] || m['role']).to_s, content: (m[:content] || m['content']).to_s }
+    end.reject { |m| m[:content].strip.empty? }
 
-    Rails.logger.info("[flue-bridge] cid=#{cid} assistant=#{@assistant.id} conv=#{@conversation&.display_id} msg_len=#{text.length}")
+    last_user = norm.reverse.find { |m| m[:role] == 'user' }
+    text = last_user ? last_user[:content].strip : ''
+    # History = everything BEFORE the last user message (so Aria has memory; nt-xesy).
+    prior = last_user ? norm[0...norm.rindex(last_user)] : norm
+
+    Rails.logger.info("[flue-bridge] cid=#{cid} assistant=#{@assistant.id} conv=#{@conversation&.display_id} msg_len=#{text.length} history=#{prior.length}")
 
     if text.blank?
       Rails.logger.warn("[flue-bridge] cid=#{cid} empty user message -> handoff")
       return handoff_response('flue_empty_message')
     end
 
-    result = call_flue(text, cid)
+    result = call_flue(text, prior, customer_name, cid)
     return handoff_response('flue_error') if result.nil?
 
     build_response(result, cid)
+  end
+
+  # The known customer's name (so Aria can address a returning customer), if resolvable.
+  def customer_name
+    @conversation&.contact&.name.presence
   end
 
   private
@@ -56,11 +67,13 @@ class Captain::FlueBridgeService
   # Mirror the fork's outbound-HTTP pattern (app/jobs/nt/meta_leadgen_job.rb HTTParty +
   # timeout + success/rescue). HTTParty (not SafeFetch — SafeFetch blocks the private
   # 172.17.0.1 docker-gateway target by design).
-  def call_flue(text, cid)
+  def call_flue(text, history, cust_name, cid)
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    payload = { message: text, history: history }
+    payload[:customerName] = cust_name if cust_name.present?
     resp = HTTParty.post(
       flue_url,
-      body: { message: text }.to_json,
+      body: payload.to_json,
       headers: { 'Content-Type' => 'application/json' },
       timeout: FLUE_TIMEOUT_SECONDS
     )
