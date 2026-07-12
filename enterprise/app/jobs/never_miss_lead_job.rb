@@ -54,14 +54,29 @@ class NeverMissLeadJob < ApplicationJob
 
   def reengage(conversation)
     assistant = conversation.inbox.captain_assistant
-    attempts = conversation.additional_attributes['never_miss_attempts'].to_i
+
+    # THE FIX (nt-7390): the never-miss job is the true CHANNEL-WATCHER — it must respond to
+    # EVERY new customer message, on ANY status (open/pending), not just the first N times.
+    # A customer who replies again (esp. after a human touched the convo -> status 'open',
+    # where Chatwoot's own trigger requires 'pending' and so never fires Aria) must still get
+    # a reply. So: track the LAST incoming we already handled; if the customer's latest
+    # incoming is NEWER, this is a fresh unanswered message -> re-trigger Aria (reset the
+    # per-message attempt counter). The attempt cap only guards a SINGLE unanswered message
+    # from being retried forever, not the whole conversation.
+    last_in = conversation.messages.where(message_type: :incoming).maximum(:created_at)
+    handled_at = conversation.additional_attributes['never_miss_handled_at']
+    handled_time = handled_at.present? ? Time.zone.parse(handled_at) : nil
+    new_customer_message = handled_time.nil? || (last_in && last_in > handled_time)
+
+    attempts = new_customer_message ? 0 : conversation.additional_attributes['never_miss_attempts'].to_i
 
     if assistant.present? && attempts.zero?
-      # First catch: re-trigger the AI. In-window it answers; out-window the send service
-      # falls back to a template automatically (SendOnWhatsappService#perform_reply).
-      Rails.logger.info("[never-miss-lead] conv=#{conversation.display_id} -> re-trigger Aria (attempt 1)")
+      # Fresh unanswered customer message -> re-trigger the AI (works on open OR pending).
+      # In-window it answers; out-window the send service falls back to a template
+      # automatically (SendOnWhatsappService#perform_reply).
+      Rails.logger.info("[never-miss-lead] conv=#{conversation.display_id} status=#{conversation.status} -> re-trigger Aria (new/unanswered msg)")
       Captain::Conversation::ResponseBuilderJob.perform_later(conversation, assistant)
-      mark_attempt(conversation, attempts + 1)
+      mark_attempt(conversation, 1, last_in)
       true
     elsif attempts < 2
       # Still unanswered after an AI attempt -> send the approved re-engagement template
@@ -92,8 +107,14 @@ class NeverMissLeadJob < ApplicationJob
     )
   end
 
-  def mark_attempt(conversation, count)
-    attrs = conversation.additional_attributes.merge('never_miss_attempts' => count, 'never_miss_last_at' => Time.current.iso8601)
+  # handled_at = the timestamp of the incoming message this attempt is responding to. Storing
+  # it lets the next tick tell whether a NEWER customer message has since arrived (=> reset).
+  def mark_attempt(conversation, count, handled_at = nil)
+    attrs = conversation.additional_attributes.merge(
+      'never_miss_attempts' => count,
+      'never_miss_last_at' => Time.current.iso8601
+    )
+    attrs['never_miss_handled_at'] = handled_at.iso8601 if handled_at.present?
     conversation.update!(additional_attributes: attrs)
   end
 end
