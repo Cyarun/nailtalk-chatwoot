@@ -130,8 +130,17 @@ class Nt::MetaLeadgenJob < ApplicationJob
 
   # Our WhatsApp Cloud inbox (NT_LEAD_WA_INBOX_ID, else the first WhatsApp inbox).
   def whatsapp_inbox
-    inbox_id = GlobalConfigService.load('NT_LEAD_WA_INBOX_ID', nil)
-    inbox_id.present? ? Inbox.find_by(id: inbox_id) : Inbox.find_by(channel_type: 'Channel::Whatsapp')
+    inbox_id = config_inbox_id('NT_LEAD_WA_INBOX_ID')
+    inbox_id ? Inbox.find_by(id: inbox_id) : Inbox.find_by(channel_type: 'Channel::Whatsapp')
+  end
+
+  # Read an inbox-id config value as a numeric id, or nil. Treats blanks AND non-numeric
+  # sentinels (e.g. the literal "UNSET" placeholder) as "not configured" — a raw
+  # GlobalConfigService.load(...).present? was TRUE for "UNSET", so Inbox.find("UNSET")
+  # raised RecordNotFound and killed the whole ingest job before the WhatsApp welcome ran.
+  def config_inbox_id(key)
+    raw = GlobalConfigService.load(key, nil).to_s.strip
+    raw.match?(/\A\d+\z/) ? raw : nil
   end
 
   # Native labels for segmentation / warm-welcome automations (meta-lead + branch-<x>).
@@ -234,10 +243,14 @@ class Nt::MetaLeadgenJob < ApplicationJob
   end
 
   def leadgen_inbox
-    id = GlobalConfigService.load('NT_LEADGEN_INBOX_ID', nil)
-    return Inbox.find(id) if id.present?
+    id = config_inbox_id('NT_LEADGEN_INBOX_ID')
+    return Inbox.find_by(id: id) || raise_missing_leadgen_inbox(id) if id
 
     Account.first.inboxes.find_by(name: 'Leads') || Account.first.inboxes.first
+  end
+
+  def raise_missing_leadgen_inbox(id)
+    raise ActiveRecord::RecordNotFound, "NT_LEADGEN_INBOX_ID=#{id} does not match any Inbox"
   end
 
   # Normalize + VALIDATE the lead's phone. Returns a +E.164 Indian mobile, or nil for a
