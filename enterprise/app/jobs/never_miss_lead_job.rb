@@ -41,15 +41,33 @@ class NeverMissLeadJob < ApplicationJob
 
   private
 
-  # A customer is waiting if their last incoming is newer than our last outgoing (or there is
-  # no outgoing at all), and it's been longer than the threshold.
-  def unanswered?(conversation)
-    last_in = conversation.messages.where(message_type: :incoming).maximum(:created_at)
-    return false if last_in.nil?
-    return false if last_in > UNANSWERED_MINUTES.minutes.ago # too fresh — give Aria time
+  # Phrases that PROMISE a follow-up but are NOT a real answer. A conversation whose last
+  # outgoing is one of these is still effectively unanswered — the customer is waiting for
+  # the promised reply that never came (Anusha's case, nt-7390).
+  HOLDING_REPLY = /\b(let me (check|confirm|get back|find out)|bear with|hold on|one moment|checking (with|this)|get back to you|will (check|confirm|update))\b/i
 
-    last_out = conversation.messages.where(message_type: %i[outgoing template]).maximum(:created_at)
-    last_out.nil? || last_out < last_in
+  # A customer is waiting if:
+  #   (a) their last incoming is newer than our last real outgoing (or no outgoing), OR
+  #   (b) our last outgoing was a HOLDING reply ("let me confirm...") that has gone stale
+  #       with no real follow-up — a promise is not an answer.
+  # And it's been longer than the threshold (give Aria time on a fresh message).
+  def unanswered?(conversation)
+    last_in_msg = conversation.messages.where(message_type: :incoming).order(:created_at).last
+    return false if last_in_msg.nil?
+    last_in = last_in_msg.created_at
+
+    last_out_msg = conversation.messages.where(message_type: %i[outgoing template]).order(:created_at).last
+    last_out = last_out_msg&.created_at
+
+    # Fresh — give the normal flow time to answer.
+    reference = [last_in, last_out].compact.max
+    return false if reference > UNANSWERED_MINUTES.minutes.ago
+
+    # (a) customer's message is newer than our last reply
+    return true if last_out.nil? || last_out < last_in
+
+    # (b) our last reply was a holding promise -> still unanswered
+    last_out_msg&.content.to_s.match?(HOLDING_REPLY)
   end
 
   def reengage(conversation)
