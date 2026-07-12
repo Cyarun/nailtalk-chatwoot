@@ -117,8 +117,58 @@ class Captain::FlueBridgeService
 
   # The legacy v1 handoff token process_response routes to process_v1_handoff
   # (create_handoff_message + bot_handoff! + OOO). No new handoff logic.
+  # Branch receptionist WhatsApp numbers — a REAL human picks up the conversation from their
+  # own WhatsApp (the in-CRM 'Nail Talk Support' agent is unstaffed, so the old
+  # 'conversation_handoff' dead-ended). Digits only, E.164 (no +).
+  RECEPTIONIST_WA = {
+    'film nagar' => '919177513377',
+    'kokapet' => '917330677726',
+    'jubilee hills' => '919550890419',
+    'banjara hills' => '919390749558'
+  }.freeze
+  DEFAULT_RECEPTIONIST_WA = ENV.fetch('DEFAULT_RECEPTIONIST_WA', '919550890419') # Jubilee Hills
+
+  # When Aria cannot resolve it herself (needsHuman / error / booking-claim), DO NOT dead-end
+  # into the unstaffed in-CRM void. Instead (nt-woi5, user directive): (1) keep the CUSTOMER
+  # warm with a helpful services link, and (2) notify the branch RECEPTIONIST on THEIR WhatsApp
+  # with a conversation summary so a real person picks it up. Returns a normal reply the bridge
+  # sends to the customer — NOT a conversation_handoff token.
   def handoff_response(reason)
+    notify_receptionist(reason)
+    {
+      'response' => "I'd love to make sure you get exactly what you need, so I'm connecting you " \
+                    "with our team who will reach out shortly. Meanwhile you can browse all our " \
+                    "services and book directly here: https://nailtalk.in/services 💅",
+      'needsHuman' => false,
+      'action_reason' => reason
+    }
+  rescue StandardError => e
+    Rails.logger.error("[flue-bridge] handoff_response failed: #{e.message}")
     { 'response' => 'conversation_handoff', 'action_reason' => reason }
+  end
+
+  # Send a short conversation summary to the branch receptionist's WhatsApp (async, best-effort).
+  def notify_receptionist(reason)
+    to = receptionist_number
+    return if to.blank?
+
+    contact = @conversation&.contact
+    last_msgs = @conversation&.messages&.where(message_type: :incoming)&.order(:created_at)&.last(3)&.map { |m| m.content.to_s[0, 80] }&.join(' | ')
+    summary = "🔔 Nail Talk lead needs you (#{reason}).\n" \
+              "Customer: #{contact&.name} #{contact&.phone_number}\n" \
+              "Recent: #{last_msgs}\n" \
+              "Open in CRM conv ##{@conversation&.display_id}. Please reply to the customer."
+
+    Rails.logger.info("[flue-bridge] notifying receptionist #{to} for conv=#{@conversation&.display_id} reason=#{reason}")
+    ::Nt::ReceptionistNotifyJob.perform_later(inbox_id: @conversation&.inbox_id, to: to, text: summary)
+  rescue StandardError => e
+    Rails.logger.warn("[flue-bridge] notify_receptionist failed: #{e.message}")
+  end
+
+  def receptionist_number
+    branch = (@conversation&.custom_attributes&.dig('preferred_branch') ||
+              @conversation&.contact&.custom_attributes&.dig('preferred_branch')).to_s.downcase.strip
+    RECEPTIONIST_WA[branch] || DEFAULT_RECEPTIONIST_WA
   end
 
   def truthy?(val)
