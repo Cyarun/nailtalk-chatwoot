@@ -89,10 +89,19 @@ class NeverMissLeadJob < ApplicationJob
     attempts = new_customer_message ? 0 : conversation.additional_attributes['never_miss_attempts'].to_i
 
     if assistant.present? && attempts.zero?
-      # Fresh unanswered customer message -> re-trigger the AI (works on open OR pending).
-      # In-window it answers; out-window the send service falls back to a template
-      # automatically (SendOnWhatsappService#perform_reply).
-      Rails.logger.info("[never-miss-lead] conv=#{conversation.display_id} status=#{conversation.status} -> re-trigger Aria (new/unanswered msg)")
+      # Fresh unanswered customer message -> re-trigger the AI.
+      # CRITICAL (nt-97uh): Aria's Chatwoot trigger (should_process_captain_response?) requires
+      # conversation.pending?. Once a customer is handed off / assigned to a human, the convo
+      # becomes 'open' (not pending) -> Aria won't fire -> the customer is stranded in the
+      # unstaffed-human VOID (all handoffs pile on 'Nail Talk Support' who never replies). Since
+      # no human works this inbox, the safety net RECLAIMS the conversation: set it back to
+      # pending + un-assign, so Aria actually responds. This is what converts the void back into
+      # an answered customer.
+      unless conversation.pending?
+        Rails.logger.info("[never-miss-lead] conv=#{conversation.display_id} reclaiming from status=#{conversation.status} assignee=#{conversation.assignee_id} -> pending (unstaffed-void rescue)")
+        conversation.update!(status: :pending, assignee_id: nil)
+      end
+      Rails.logger.info("[never-miss-lead] conv=#{conversation.display_id} -> re-trigger Aria (new/unanswered msg)")
       Captain::Conversation::ResponseBuilderJob.perform_later(conversation, assistant)
       mark_attempt(conversation, 1, last_in)
       true
