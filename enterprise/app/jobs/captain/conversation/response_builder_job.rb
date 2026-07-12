@@ -12,6 +12,11 @@ class Captain::Conversation::ResponseBuilderJob < ApplicationJob
 
     return unless conversation_pending?
 
+    # nt-0exh: a NailTalk service-catalogue tap (interactive list_reply id cat:/svc:) is
+    # handled deterministically by Nt::WhatsappCatalogueJob (sends the sub-list or booking
+    # link) — skip Aria so she doesn't also LLM-answer the raw category/service label.
+    return if catalogue_tap_last?
+
     Current.executed_by = @assistant
 
     if flue_backend?
@@ -231,5 +236,18 @@ class Captain::Conversation::ResponseBuilderJob < ApplicationJob
   def conversation_pending?
     status = Conversation.uncached { Conversation.where(id: @conversation.id).pick(:status) }
     status == 'pending' || status == Conversation.statuses[:pending]
+  end
+
+  # nt-0exh: true when the most recent incoming message is a catalogue interactive-list tap.
+  # The tap's source_id is the WhatsApp message id; the row id (cat:/svc:) isn't persisted on
+  # the message, so we detect the tap by its stored content matching a catalogue row label.
+  # We instead check content_attributes for the marker set by the incoming service. Since the
+  # incoming service already enqueued the catalogue job for cat:/svc: taps, the marker is the
+  # reliable signal.
+  def catalogue_tap_last?
+    last = @conversation.messages.incoming.order(:created_at).last
+    last.present? && last.content_attributes&.dig('nt_catalogue_tap') == true
+  rescue StandardError
+    false
   end
 end

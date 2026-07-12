@@ -102,6 +102,31 @@ class Whatsapp::IncomingMessageBaseService
     attach_files
     attach_location if message_type == 'location'
     @message.save!
+    maybe_handle_catalogue_reply(message)
+  end
+
+  # nt-0exh: when the customer taps a row in the NailTalk service-catalogue interactive list,
+  # WhatsApp delivers interactive.list_reply.id (e.g. "cat:pedicures" or "svc:gel-pedicure").
+  # A catalogue id is meaningless to Aria's LLM, so handle it deterministically here: enqueue
+  # the catalogue job to send the next sub-list (cat:) or the booking link (svc:). The 24h
+  # window is open by construction (the customer just tapped). Non-catalogue replies fall
+  # through untouched to normal Aria/automation handling.
+  def maybe_handle_catalogue_reply(message)
+    return if outgoing_echo
+
+    reply_id = message.dig(:interactive, :list_reply, :id)
+    return if reply_id.blank?
+    return unless Nt::WhatsappCatalogue.catalogue_reply?(reply_id)
+
+    to = whatsapp_phone_number(message[:from])
+    return if to.blank?
+
+    # Mark the message so Captain's ResponseBuilderJob skips Aria for this deterministic tap.
+    @message.update!(content_attributes: @message.content_attributes.merge(nt_catalogue_tap: true))
+
+    Nt::WhatsappCatalogueJob.perform_later(inbox_id: @inbox.id, to: to, action: 'reply', reply_id: reply_id)
+  rescue StandardError => e
+    Rails.logger.error("[wa-catalogue] reply hook failed: #{e.message}")
   end
 
   def set_contact

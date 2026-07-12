@@ -1,0 +1,689 @@
+{
+  "_meta": {
+    "source": "service_ids.json x booking_urls.ts (nt-0exh)",
+    "totalServices": 103
+  },
+  "groups": [
+    {
+      "id": "nail-extensions",
+      "name": "Nail Extensions",
+      "emoji": "💅",
+      "services": [
+        {
+          "name": "Nail Art",
+          "slug": "nail-art-18",
+          "price": 100,
+          "url": "https://www.nailtalk.in/booking-calendar/nail-art-18"
+        },
+        {
+          "name": "Acrylic Buff & File",
+          "slug": "acrylic-buff-file-1",
+          "price": 300,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-buff-file-1"
+        },
+        {
+          "name": "Acrylic Removals",
+          "slug": "acrylic-removals",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-removals"
+        },
+        {
+          "name": "Acrylic Buff & Polish",
+          "slug": "acrylic-buff-polish-1",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-buff-polish-1"
+        },
+        {
+          "name": "Acrylic File & Polish",
+          "slug": "acrylic-file-polish",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-file-polish"
+        },
+        {
+          "name": "Acrylic/Gel Removals",
+          "slug": "acrylic-gel-removals",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-gel-removals"
+        },
+        {
+          "name": "Acrylic Overlay",
+          "slug": "acrylic-overlay",
+          "price": 1000,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-overlay"
+        },
+        {
+          "name": "Acrylic/Gel Refills",
+          "slug": "acrylic-gel-refills",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-gel-refills"
+        },
+        {
+          "name": "Acrylic Refills",
+          "slug": "acrylic-refills",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-refills"
+        },
+        {
+          "name": "Acrylic/Gel Overlay",
+          "slug": "acrylic-gel-overlay",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-gel-overlay"
+        },
+        {
+          "name": "Acrylic P/W Refills",
+          "slug": "acrylic-p-w-refills",
+          "price": 1700,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-p-w-refills"
+        },
+        {
+          "name": "Acrylic Pink & White Refills",
+          "slug": "acrylic-pink-white-refills",
+          "price": 1700,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-pink-white-refills"
+        },
+        {
+          "name": "Acrylic/Gel Full Set",
+          "slug": "acrylic-gel-full-set-1",
+          "price": 2000,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-gel-full-set-1"
+        },
+        {
+          "name": "Extensions + Nail Art Package",
+          "slug": "extensions-nail-art-package",
+          "price": 2200,
+          "url": "https://www.nailtalk.in/booking-calendar/extensions-nail-art-package"
+        },
+        {
+          "name": "Acrylic French Tips",
+          "slug": "acrylic-french-tips",
+          "price": 2200,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-french-tips"
+        },
+        {
+          "name": "Acrylic Pink & White",
+          "slug": "acrylic-pink-white",
+          "price": 2500,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-pink-white"
+        },
+        {
+          "name": "Bridal Nails Package",
+          "slug": "bridal-nails-package",
+          "price": 2700,
+          "url": "https://www.nailtalk.in/booking-calendar/bridal-nails-package"
+        },
+        {
+          "name": "Full Extensions Package",
+          "slug": "full-extensions-package",
+          "price": 3000,
+          "url": "https://www.nailtalk.in/booking-calendar/full-extensions-package"
+        },
+        {
+          "name": "Acrylic Pink & White Fade",
+          "slug": "acrylic-pink-white-fade",
+          "price": null,
+          "url": "https://www.nailtalk.in/booking-calendar/acrylic-pink-white-fade"
+        },
+        {
+          "name": "3D Flower",
+          "slug": "3d-flower",
+          "price": null,
+          "url": "https://www.nailtalk.in/booking-calendar/3d-flower"
+        }
+      ]
+    },
+    {
+      "id": "manicures",
+      "name": "Manicures",
+      "emoji": "🤍",
+      "services": [
+        {
+          "name": "Cut & File",
+          "slug": "cut-file-2",
+          "price": 140,
+          "url": "https://www.nailtalk.in/booking-calendar/cut-file-2"
+        },
+        {
+          "name": "Kids Polish",
+          "slug": "kids-polish",
+          "price": 150,
+          "url": "https://www.nailtalk.in/booking-calendar/kids-polish"
+        },
+        {
+          "name": "Hand & Arm Massage",
+          "slug": "hand-arm-massage",
+          "price": 400,
+          "url": "https://www.nailtalk.in/booking-calendar/hand-arm-massage"
+        },
+        {
+          "name": "Regular Polish",
+          "slug": "regular-polish-8",
+          "price": 400,
+          "url": "https://www.nailtalk.in/booking-calendar/regular-polish-8"
+        },
+        {
+          "name": "Princess",
+          "slug": "princess",
+          "price": 450,
+          "url": "https://www.nailtalk.in/booking-calendar/princess"
+        },
+        {
+          "name": "Princess Manicure",
+          "slug": "princess-manicure",
+          "price": 450,
+          "url": "https://www.nailtalk.in/booking-calendar/princess-manicure"
+        },
+        {
+          "name": "Professional",
+          "slug": "professional-1",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/professional-1"
+        },
+        {
+          "name": "French Polish",
+          "slug": "french-polish",
+          "price": 600,
+          "url": "https://www.nailtalk.in/booking-calendar/french-polish"
+        },
+        {
+          "name": "Ombre",
+          "slug": "ombre-1",
+          "price": 700,
+          "url": "https://www.nailtalk.in/booking-calendar/ombre-1"
+        },
+        {
+          "name": "Signature",
+          "slug": "signature-2",
+          "price": 700,
+          "url": "https://www.nailtalk.in/booking-calendar/signature-2"
+        },
+        {
+          "name": "French Manicure",
+          "slug": "french-manicure",
+          "price": 950,
+          "url": "https://www.nailtalk.in/booking-calendar/french-manicure"
+        },
+        {
+          "name": "Gel Manicure",
+          "slug": "gel-manicure",
+          "price": 1200,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-manicure"
+        },
+        {
+          "name": "Ethereal Manicure",
+          "slug": "ethereal-manicure",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/ethereal-manicure"
+        },
+        {
+          "name": "Complete Mani-Pedi",
+          "slug": "complete-mani-pedi",
+          "price": 1600,
+          "url": "https://www.nailtalk.in/booking-calendar/complete-mani-pedi"
+        },
+        {
+          "name": "Gel Mani-Pedi",
+          "slug": "gel-mani-pedi",
+          "price": 2900,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-mani-pedi"
+        }
+      ]
+    },
+    {
+      "id": "gel-polish",
+      "name": "Gel & Polish",
+      "emoji": "✨",
+      "services": [
+        {
+          "name": "Polish Application",
+          "slug": "polish-application",
+          "price": 220,
+          "url": "https://www.nailtalk.in/booking-calendar/polish-application"
+        },
+        {
+          "name": "Gel Removals",
+          "slug": "gel-removals",
+          "price": 300,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-removals"
+        },
+        {
+          "name": "Gel Polish Removals",
+          "slug": "gel-polish-removals",
+          "price": 300,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-polish-removals"
+        },
+        {
+          "name": "Dipping Powder Removal",
+          "slug": "dipping-powder-removal",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/dipping-powder-removal"
+        },
+        {
+          "name": "Gel Polish",
+          "slug": "gel-polish",
+          "price": 800,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-polish"
+        },
+        {
+          "name": "Gel Overlay",
+          "slug": "gel-overlay",
+          "price": 1000,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-overlay"
+        },
+        {
+          "name": "Gel Polish + Nail Art Combo",
+          "slug": "gel-polish-nail-art-combo",
+          "price": 1000,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-polish-nail-art-combo"
+        },
+        {
+          "name": "Gel French",
+          "slug": "gel-french-2",
+          "price": 1100,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-french-2"
+        },
+        {
+          "name": "Gel Cat Eye",
+          "slug": "gel-cat-eye-1",
+          "price": 1300,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-cat-eye-1"
+        },
+        {
+          "name": "Gel Chrome",
+          "slug": "gel-chrome-1",
+          "price": 1300,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-chrome-1"
+        },
+        {
+          "name": "Dipping Powder",
+          "slug": "dipping-powder",
+          "price": 1400,
+          "url": "https://www.nailtalk.in/booking-calendar/dipping-powder"
+        },
+        {
+          "name": "Gel Ombre",
+          "slug": "gel-ombre-1",
+          "price": 1400,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-ombre-1"
+        },
+        {
+          "name": "Chrome Nail Art Package",
+          "slug": "chrome-nail-art-package",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/chrome-nail-art-package"
+        },
+        {
+          "name": "Gel Refills",
+          "slug": "gel-refills",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-refills"
+        },
+        {
+          "name": "Dipping Powder Ombre",
+          "slug": "dipping-powder-ombre",
+          "price": 1800,
+          "url": "https://www.nailtalk.in/booking-calendar/dipping-powder-ombre"
+        },
+        {
+          "name": "Gel Nail Extensions",
+          "slug": "gel-nail-extensions",
+          "price": 2000,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-nail-extensions"
+        },
+        {
+          "name": "Chrome French",
+          "slug": "chrome-french-18",
+          "price": null,
+          "url": "https://www.nailtalk.in/booking-calendar/chrome-french-18"
+        }
+      ]
+    },
+    {
+      "id": "pedicures",
+      "name": "Pedicures",
+      "emoji": "🦶",
+      "services": [
+        {
+          "name": "Foot & Leg Massage",
+          "slug": "foot-leg-massage",
+          "price": 400,
+          "url": "https://www.nailtalk.in/booking-calendar/foot-leg-massage"
+        },
+        {
+          "name": "Princess Pedicure",
+          "slug": "princess-pedicure",
+          "price": 550,
+          "url": "https://www.nailtalk.in/booking-calendar/princess-pedicure"
+        },
+        {
+          "name": "Signature Pedicure",
+          "slug": "signature-pedicure",
+          "price": 900,
+          "url": "https://www.nailtalk.in/booking-calendar/signature-pedicure"
+        },
+        {
+          "name": "Spa (Scrub+Mask)",
+          "slug": "spa-scrub-mask",
+          "price": 1300,
+          "url": "https://www.nailtalk.in/booking-calendar/spa-scrub-mask"
+        },
+        {
+          "name": "French Pedicure",
+          "slug": "french-pedicure",
+          "price": 1350,
+          "url": "https://www.nailtalk.in/booking-calendar/french-pedicure"
+        },
+        {
+          "name": "Spa (Scrub+Mask) Pedicure",
+          "slug": "spa-scrub-mask-pedicure",
+          "price": 1400,
+          "url": "https://www.nailtalk.in/booking-calendar/spa-scrub-mask-pedicure"
+        },
+        {
+          "name": "Ethereal",
+          "slug": "ethereal-1",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/ethereal-1"
+        },
+        {
+          "name": "Pedicure Luxe",
+          "slug": "pedicure-luxe",
+          "price": 1600,
+          "url": "https://www.nailtalk.in/booking-calendar/pedicure-luxe"
+        },
+        {
+          "name": "Ethereal Pedicure",
+          "slug": "ethereal-pedicure",
+          "price": 1700,
+          "url": "https://www.nailtalk.in/booking-calendar/ethereal-pedicure"
+        },
+        {
+          "name": "Gel Pedicure",
+          "slug": "gel-pedicure",
+          "price": 1700,
+          "url": "https://www.nailtalk.in/booking-calendar/gel-pedicure"
+        }
+      ]
+    },
+    {
+      "id": "lashes-brows",
+      "name": "Lashes & Brows",
+      "emoji": "👁️",
+      "services": [
+        {
+          "name": "Lash Lifting",
+          "slug": "lash-lifting-18",
+          "price": 2500,
+          "url": "https://www.nailtalk.in/booking-calendar/lash-lifting-18"
+        },
+        {
+          "name": "Lash Lift + Brow Package",
+          "slug": "lash-lift-brow-package",
+          "price": 2620,
+          "url": "https://www.nailtalk.in/booking-calendar/lash-lift-brow-package"
+        },
+        {
+          "name": "The Volume",
+          "slug": "the-volume",
+          "price": 4000,
+          "url": "https://www.nailtalk.in/booking-calendar/the-volume"
+        },
+        {
+          "name": "The Dramatic",
+          "slug": "the-dramatic",
+          "price": 4400,
+          "url": "https://www.nailtalk.in/booking-calendar/the-dramatic"
+        },
+        {
+          "name": "Microblading",
+          "slug": "microblading-1",
+          "price": 18000,
+          "url": "https://www.nailtalk.in/booking-calendar/microblading-1"
+        },
+        {
+          "name": "The Classic",
+          "slug": "the-classic",
+          "price": null,
+          "url": "https://www.nailtalk.in/booking-calendar/the-classic"
+        }
+      ]
+    },
+    {
+      "id": "facials",
+      "name": "Facials",
+      "emoji": "🧖‍♀️",
+      "services": [
+        {
+          "name": "D-Tan",
+          "slug": "d-tan-3",
+          "price": 700,
+          "url": "https://www.nailtalk.in/booking-calendar/d-tan-3"
+        },
+        {
+          "name": "O3 Luxury Facial",
+          "slug": "o3-luxury-facial",
+          "price": 3200,
+          "url": "https://www.nailtalk.in/booking-calendar/o3-luxury-facial"
+        },
+        {
+          "name": "Bb Glow ",
+          "slug": "bb-glow",
+          "price": 5500,
+          "url": "https://www.nailtalk.in/booking-calendar/bb-glow"
+        },
+        {
+          "name": "Hydra Facial",
+          "slug": "hydra-facial",
+          "price": 6500,
+          "url": "https://www.nailtalk.in/booking-calendar/hydra-facial"
+        },
+        {
+          "name": "Korean Glass Skin Facial",
+          "slug": "korean-glass-skin-facial",
+          "price": 6500,
+          "url": "https://www.nailtalk.in/booking-calendar/korean-glass-skin-facial"
+        }
+      ]
+    },
+    {
+      "id": "threading-waxing",
+      "name": "Threading & Waxing",
+      "emoji": "🪒",
+      "services": [
+        {
+          "name": "Full Face Threading",
+          "slug": "full-face-threading-18",
+          "price": 120,
+          "url": "https://www.nailtalk.in/booking-calendar/full-face-threading-18"
+        },
+        {
+          "name": "Forehead Threading",
+          "slug": "forehead-threading-18",
+          "price": 200,
+          "url": "https://www.nailtalk.in/booking-calendar/forehead-threading-18"
+        },
+        {
+          "name": "Under Arms Rica Wax",
+          "slug": "under-arms-rica-wax",
+          "price": 250,
+          "url": "https://www.nailtalk.in/booking-calendar/under-arms-rica-wax"
+        },
+        {
+          "name": "Waxing",
+          "slug": "waxing",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/waxing"
+        },
+        {
+          "name": "Full Face Waxing",
+          "slug": "full-face-waxing-18",
+          "price": 700,
+          "url": "https://www.nailtalk.in/booking-calendar/full-face-waxing-18"
+        },
+        {
+          "name": "Full Hands Rica Wax",
+          "slug": "full-hands-rica-wax",
+          "price": 700,
+          "url": "https://www.nailtalk.in/booking-calendar/full-hands-rica-wax"
+        },
+        {
+          "name": "Full Legs Rica Wax",
+          "slug": "full-legs-rica-wax",
+          "price": 1000,
+          "url": "https://www.nailtalk.in/booking-calendar/full-legs-rica-wax"
+        },
+        {
+          "name": "D-Tan Full Hands",
+          "slug": "d-tan-full-hands",
+          "price": 1100,
+          "url": "https://www.nailtalk.in/booking-calendar/d-tan-full-hands"
+        },
+        {
+          "name": "Leg Waxing",
+          "slug": "leg-waxing",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/leg-waxing"
+        },
+        {
+          "name": "D-Tan Full Legs",
+          "slug": "d-tan-full-legs",
+          "price": 1600,
+          "url": "https://www.nailtalk.in/booking-calendar/d-tan-full-legs"
+        },
+        {
+          "name": "Makeup",
+          "slug": "makeup-4",
+          "price": 3000,
+          "url": "https://www.nailtalk.in/booking-calendar/makeup-4"
+        },
+        {
+          "name": "Hair & Saree Draping",
+          "slug": "hair-saree-draping",
+          "price": 3500,
+          "url": "https://www.nailtalk.in/booking-calendar/hair-saree-draping"
+        },
+        {
+          "name": "Lip Tinting",
+          "slug": "lip-tinting",
+          "price": null,
+          "url": "https://www.nailtalk.in/booking-calendar/lip-tinting"
+        }
+      ]
+    },
+    {
+      "id": "hair",
+      "name": "Hair",
+      "emoji": "💇‍♀️",
+      "services": [
+        {
+          "name": "Hair Cut",
+          "slug": "hair-cut-4",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/hair-cut-4"
+        },
+        {
+          "name": "Hair Oil Massage",
+          "slug": "hair-oil-massage",
+          "price": 800,
+          "url": "https://www.nailtalk.in/booking-calendar/hair-oil-massage"
+        },
+        {
+          "name": "Anti Hair Fall Hair Spa",
+          "slug": "anti-hair-fall-hair-spa",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/anti-hair-fall-hair-spa"
+        },
+        {
+          "name": "Anti Dandruff Hair Spa",
+          "slug": "anti-dandruff-hair-spa",
+          "price": 1500,
+          "url": "https://www.nailtalk.in/booking-calendar/anti-dandruff-hair-spa"
+        },
+        {
+          "name": "Hair Spa",
+          "slug": "hair-spa-1",
+          "price": 2000,
+          "url": "https://www.nailtalk.in/booking-calendar/hair-spa-1"
+        },
+        {
+          "name": "Nashi Luxury Hair Spa",
+          "slug": "nashi-luxury-hair-spa",
+          "price": 2300,
+          "url": "https://www.nailtalk.in/booking-calendar/nashi-luxury-hair-spa"
+        },
+        {
+          "name": "Hair Colour",
+          "slug": "hair-colour-4",
+          "price": 3000,
+          "url": "https://www.nailtalk.in/booking-calendar/hair-colour-4"
+        },
+        {
+          "name": "Botox Repair Mask",
+          "slug": "botox-repair-mask",
+          "price": 3000,
+          "url": "https://www.nailtalk.in/booking-calendar/botox-repair-mask"
+        }
+      ]
+    },
+    {
+      "id": "add-ons-massage",
+      "name": "Add-ons & Massage",
+      "emoji": "💆‍♀️",
+      "services": [
+        {
+          "name": "Stickers",
+          "slug": "stickers",
+          "price": 50,
+          "url": "https://www.nailtalk.in/booking-calendar/stickers"
+        },
+        {
+          "name": "Studs",
+          "slug": "studs",
+          "price": 50,
+          "url": "https://www.nailtalk.in/booking-calendar/studs"
+        },
+        {
+          "name": "Marble",
+          "slug": "marble-2",
+          "price": 100,
+          "url": "https://www.nailtalk.in/booking-calendar/marble-2"
+        },
+        {
+          "name": "Freehand Nail Art",
+          "slug": "freehand-nail-art",
+          "price": 200,
+          "url": "https://www.nailtalk.in/booking-calendar/freehand-nail-art"
+        },
+        {
+          "name": "Callus Removal",
+          "slug": "callus-removal",
+          "price": 300,
+          "url": "https://www.nailtalk.in/booking-calendar/callus-removal"
+        },
+        {
+          "name": "Hand Massage",
+          "slug": "hand-massage",
+          "price": 350,
+          "url": "https://www.nailtalk.in/booking-calendar/hand-massage"
+        },
+        {
+          "name": "Neck & Shoulder Massage",
+          "slug": "neck-shoulder-massage",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/neck-shoulder-massage"
+        },
+        {
+          "name": "Paraffin Wax Therapy",
+          "slug": "paraffin-wax-therapy",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/paraffin-wax-therapy"
+        },
+        {
+          "name": "Glitters Full Set",
+          "slug": "glitters-full-set",
+          "price": 500,
+          "url": "https://www.nailtalk.in/booking-calendar/glitters-full-set"
+        }
+      ]
+    }
+  ]
+}
