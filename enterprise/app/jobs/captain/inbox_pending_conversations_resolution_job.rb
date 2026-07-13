@@ -67,7 +67,12 @@ class Captain::InboxPendingConversationsResolutionJob < ApplicationJob
   end
 
   def auto_resolve_cutoff_time
-    Time.now.utc - 1.hour
+    # nt-woi5: a 1-hour cutoff abandoned warm WhatsApp leads who paused briefly (customer at
+    # work / replying after lunch got Auto-resolved + handed off). For a SALES inbox that kills
+    # conversions. Extend to a configurable, much longer window (default 48h) so the never-miss
+    # watcher can re-engage a quiet lead instead of the system closing them out.
+    hours = ENV.fetch('CAPTAIN_AUTO_RESOLVE_HOURS', '48').to_i
+    Time.now.utc - hours.hours
   end
 
   def resolve_conversation(conversation, inbox, reason)
