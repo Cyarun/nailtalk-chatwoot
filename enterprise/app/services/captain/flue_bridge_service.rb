@@ -112,13 +112,13 @@ class Captain::FlueBridgeService
       return handoff_response('flue_blank_reply')
     end
 
-    # HARD PRICE GATE (nt-yxh8): NEVER let a hallucinated / self-calculated price reach a
-    # customer. Every price token in the reply MUST exist verbatim in the KB
-    # (captain_assistant_responses answers = the Wix-synced source of truth). If ANY price in
-    # the reply is not KB-verified, we DO NOT send it — we strip the reply and send a safe
-    # "let me get you the exact price" + services link instead. This is a code gate the LLM
-    # cannot prompt its way around. (User: "always lookup RAG/Wix, never calculate, real
-    # guardrails not prompts".)
+    # HARD PRICE GATE (nt-yxh8): Aria must NEVER state or calculate ANY price herself — even a
+    # price that is in the KB/memory. The ONLY price that may reach a customer comes from a
+    # live Wix Pricing API call (future Wix-quote tool). So by default this gate BLOCKS EVERY
+    # price token in the reply. (User rule, verbatim: "never tell the price on your own",
+    # "even if you know the prices are in memory always calculate only using the wix
+    # quotation".) ARIA_ALLOW_KB_PRICES=1 relaxes it to KB-verified prices only (transitional,
+    # off by default). This is a code gate the LLM cannot prompt its way around.
     unless prices_verified?(reply, cid)
       Rails.logger.error("[flue-bridge] cid=#{cid} PRICE GATE BLOCKED an unverified price in reply -> safe fallback")
       return {
@@ -136,9 +136,18 @@ class Captain::FlueBridgeService
   def prices_verified?(reply, cid)
     amounts = reply.scan(/(?:rs\.?\s*|₹\s*|inr\s*)?(\d{2,3}(?:,\d{3})+|\d{3,6})/i)
                    .flatten.map { |a| a.delete(',').to_i }.uniq
-                   .select { |n| n >= 50 } # ignore small numbers (times, counts, %)
+                   .select { |n| n >= 50 } # ignore small numbers (times, counts, %) but keep the Rs 100 deposit
+    amounts.reject! { |n| n == 100 } # the Rs 100 booking deposit is a fixed policy constant, not a service price
     return true if amounts.empty?
 
+    # DEFAULT (user rule): Aria may NOT state ANY price on her own — block it. Only the
+    # Wix-quote tool (future) may surface a price. Any reply containing a price is blocked.
+    unless ENV['ARIA_ALLOW_KB_PRICES'] == '1'
+      Rails.logger.error("[flue-bridge] cid=#{cid} PRICE GATE: reply contains price(s) #{amounts.inspect} — Aria may not state prices (Wix-only rule) -> BLOCKED")
+      return false
+    end
+
+    # Transitional mode only: allow prices that are verbatim in the KB.
     kb_prices = kb_price_set
     unverified = amounts.reject { |amt| kb_prices.include?(amt) }
     if unverified.any?
