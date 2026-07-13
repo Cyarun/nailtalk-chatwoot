@@ -44,9 +44,17 @@ module Nt
         token = ENV['WIX_TOKEN'] || GlobalConfigService.load('WIX_TOKEN', nil) rescue nil
         return [] if token.blank?
 
+        # The IST-JWT is account-scoped; the Bookings Services query MUST be told which site to
+        # read via the wix-site-id header, otherwise Wix returns HTTP 403 (empty body). Verified
+        # (rule 1): Authorization alone -> 403; Authorization + wix-site-id -> 100 services incl.
+        # LASH LIFTING=2500 INR on site 91ce5042-57ae-49d4-a482-185b17e44a0b.
+        site_id = ENV['WIX_SITE_ID'] || GlobalConfigService.load('WIX_SITE_ID', nil) rescue nil
+        headers = { 'Authorization' => token, 'Content-Type' => 'application/json' }
+        headers['wix-site-id'] = site_id if site_id.present?
+
         resp = HTTParty.post(
           WIX_QUERY_URL,
-          headers: { 'Authorization' => token, 'Content-Type' => 'application/json' },
+          headers: headers,
           body: { query: { paging: { limit: 100 } } }.to_json,
           timeout: 15
         )
