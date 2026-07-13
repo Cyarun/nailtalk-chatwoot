@@ -2,6 +2,14 @@
 
 <p>{{ custom_message }}</p>
 
+{% if nt_customer_name or nt_customer_phone or nt_recent_messages %}
+<p><strong>Lead details:</strong><br>
+{% if nt_customer_name %}Customer: {{ nt_customer_name }}<br>{% endif %}
+{% if nt_customer_phone %}Phone: {{ nt_customer_phone }}<br>{% endif %}
+{% if nt_recent_messages %}They asked: {{ nt_recent_messages }}{% endif %}
+</p>
+{% endif %}
+
 <p>
 Click <a href="{{ action_url }}">here</a> to get cracking.
 </p>

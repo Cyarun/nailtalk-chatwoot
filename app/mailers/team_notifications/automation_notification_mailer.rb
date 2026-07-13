@@ -27,8 +27,17 @@ class TeamNotifications::AutomationNotificationMailer < ApplicationMailer
   end
 
   def liquid_locals
+    # nt-w318: enrich the lead-alert email with CONVERSATION CONTEXT so the team understands
+    # what the lead is about (customer name/number + what they asked) — not just a bare link.
+    contact = @conversation&.contact
+    recent = @conversation&.messages
+                          &.where(message_type: :incoming)&.order(:created_at)&.last(4)
+                          &.map { |m| m.content.to_s[0, 120] }&.reject(&:blank?)&.join(' | ')
     super.merge!({
-                   custom_message: @custom_message
+                   custom_message: @custom_message,
+                   nt_customer_name: contact&.name,
+                   nt_customer_phone: contact&.phone_number,
+                   nt_recent_messages: recent
                  })
   end
 end
