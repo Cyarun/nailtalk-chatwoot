@@ -56,7 +56,14 @@ class NeverMissLeadJob < ApplicationJob
     return false if last_in_msg.nil?
     last_in = last_in_msg.created_at
 
-    last_out_msg = conversation.messages.where(message_type: %i[outgoing template]).order(:created_at).last
+    # API-FAILURE WATCHER (nt-jf9c): a message whose SEND FAILED (Meta/WhatsApp/Flue/Wix error
+    # -> status :failed) did NOT actually reach the customer, so it must NOT count as an answer.
+    # Excluding failed outgoing means a conversation stalled by a transient API failure is seen
+    # as still-unanswered and gets re-engaged (self-heals) instead of leaving the customer stuck.
+    last_out_msg = conversation.messages
+                               .where(message_type: %i[outgoing template])
+                               .where.not(status: :failed)
+                               .order(:created_at).last
     last_out = last_out_msg&.created_at
 
     # Fresh — give the normal flow time to answer.
