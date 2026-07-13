@@ -120,15 +120,41 @@ class Captain::FlueBridgeService
     # quotation".) ARIA_ALLOW_KB_PRICES=1 relaxes it to KB-verified prices only (transitional,
     # off by default). This is a code gate the LLM cannot prompt its way around.
     unless prices_verified?(reply, cid)
-      Rails.logger.error("[flue-bridge] cid=#{cid} PRICE GATE BLOCKED an unverified price in reply -> safe fallback")
-      return {
+      Rails.logger.error("[flue-bridge] cid=#{cid} PRICE GATE BLOCKED an unverified price -> resolving real Wix price")
+      # Aria may NOT state her own price — but the customer asked one. Fetch the REAL price
+      # from Wix (the source of truth) for the service they're discussing and answer with THAT.
+      wix = resolve_wix_price
+      if wix
+        Rails.logger.info("[flue-bridge] cid=#{cid} answering with Wix price: #{wix[:name]}=#{wix[:price]}")
+        return {
+          'response' => "Our #{wix[:name].titleize} is #{wix[:currency]} #{wix[:price]}, Madam. " \
+                        "Shall I share the booking link so you can pick your slot? (A Rs 100 deposit confirms it.) 💅",
+          'agent_name' => @assistant.name
+        }
+      end
+      # No confident Wix match -> never guess; point to the live menu.
+      {
         'response' => "Let me confirm the exact current price for you, Madam. You can also see " \
                       "our full up-to-date menu and prices here: https://nailtalk.in/services 💅",
         'agent_name' => @assistant.name
       }
+    else
+      { 'response' => reply, 'agent_name' => @assistant.name }
     end
+  end
 
-    { 'response' => reply, 'agent_name' => @assistant.name }
+  # Find the service the customer is asking about (from their latest messages) and get the
+  # LIVE Wix price for it. Returns { name:, price:, currency: } or nil (never a guess).
+  def resolve_wix_price
+    recent = @conversation&.messages
+                          &.where(message_type: :incoming)&.order(:created_at)&.last(4)
+                          &.map { |m| m.content.to_s }&.join(' ')
+    return nil if recent.blank?
+
+    Nt::WixPriceService.lookup(recent)
+  rescue StandardError => e
+    Rails.logger.error("[flue-bridge] resolve_wix_price failed: #{e.message}")
+    nil
   end
 
   # Returns true if EVERY price mentioned in the reply is present in the KB. Extracts amounts
