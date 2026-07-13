@@ -112,7 +112,56 @@ class Captain::FlueBridgeService
       return handoff_response('flue_blank_reply')
     end
 
+    # HARD PRICE GATE (nt-yxh8): NEVER let a hallucinated / self-calculated price reach a
+    # customer. Every price token in the reply MUST exist verbatim in the KB
+    # (captain_assistant_responses answers = the Wix-synced source of truth). If ANY price in
+    # the reply is not KB-verified, we DO NOT send it — we strip the reply and send a safe
+    # "let me get you the exact price" + services link instead. This is a code gate the LLM
+    # cannot prompt its way around. (User: "always lookup RAG/Wix, never calculate, real
+    # guardrails not prompts".)
+    unless prices_verified?(reply, cid)
+      Rails.logger.error("[flue-bridge] cid=#{cid} PRICE GATE BLOCKED an unverified price in reply -> safe fallback")
+      return {
+        'response' => "Let me confirm the exact current price for you, Madam. You can also see " \
+                      "our full up-to-date menu and prices here: https://nailtalk.in/services 💅",
+        'agent_name' => @assistant.name
+      }
+    end
+
     { 'response' => reply, 'agent_name' => @assistant.name }
+  end
+
+  # Returns true if EVERY price mentioned in the reply is present in the KB. Extracts amounts
+  # like "Rs 2500", "₹2,000", "2000". A reply with no price is trivially verified.
+  def prices_verified?(reply, cid)
+    amounts = reply.scan(/(?:rs\.?\s*|₹\s*|inr\s*)?(\d{2,3}(?:,\d{3})+|\d{3,6})/i)
+                   .flatten.map { |a| a.delete(',').to_i }.uniq
+                   .select { |n| n >= 50 } # ignore small numbers (times, counts, %)
+    return true if amounts.empty?
+
+    kb_prices = kb_price_set
+    unverified = amounts.reject { |amt| kb_prices.include?(amt) }
+    if unverified.any?
+      Rails.logger.warn("[flue-bridge] cid=#{cid} unverified prices=#{unverified.inspect} kb_has=#{kb_prices.size}")
+      return false
+    end
+    true
+  end
+
+  # All numeric prices present in the KB answers (the Wix-synced source of truth), cached.
+  def kb_price_set
+    @kb_price_set ||= begin
+      set = Set.new
+      Captain::AssistantResponse.where(assistant_id: @assistant.id).pluck(:answer).each do |ans|
+        ans.to_s.scan(/(?:rs\.?\s*|₹\s*|inr\s*)(\d{2,3}(?:,\d{3})+|\d{3,6})/i).flatten.each do |a|
+          set << a.delete(',').to_i
+        end
+      end
+      set
+    rescue StandardError => e
+      Rails.logger.error("[flue-bridge] kb_price_set failed: #{e.message}")
+      Set.new
+    end
   end
 
   # The legacy v1 handoff token process_response routes to process_v1_handoff
