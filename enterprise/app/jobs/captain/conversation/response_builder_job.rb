@@ -4,7 +4,8 @@ class Captain::Conversation::ResponseBuilderJob < ApplicationJob
   MAX_MESSAGE_LENGTH = 10_000
   retry_on ActiveStorage::FileNotFoundError, attempts: 3, wait: 2.seconds
   retry_on Faraday::BadRequestError, attempts: 3, wait: 2.seconds
-
+  retry_on Faraday::TimeoutError, attempts: 3, wait: 2.seconds
+  retry_on Faraday::ConnectionFailed, attempts: 3, wait: 2.seconds
   def perform(conversation, assistant)
     @conversation = conversation
     @inbox = conversation.inbox
