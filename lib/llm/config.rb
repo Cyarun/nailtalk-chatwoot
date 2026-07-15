@@ -24,6 +24,7 @@ module Llm::Config
       context = RubyLLM.context do |config|
         config.openai_api_key = api_key
         config.openai_api_base = api_base
+        config.openrouter_api_key = api_key
       end
 
       yield context
